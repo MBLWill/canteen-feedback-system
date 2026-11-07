@@ -12,6 +12,12 @@
             (SELECT u.username FROM sys_user u
               WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
               LIMIT 1) AS merchantUsername,
+            (SELECT u.email FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantEmail,
+            (SELECT u.phone FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantPhone,
             s.location,
             s.category,
             s.manager_name AS managerName,
@@ -19,6 +25,8 @@
             s.cover_image AS coverImage,
             s.description,
             s.hygiene_score AS hygieneScore,
+            s.health_cert_url AS healthCertUrl,
+            s.license_url AS licenseUrl,
             s.status,
             COUNT(DISTINCT d.id) AS dishCount,
             IFNULL(ROUND(AVG(r.rating), 2), 0) AS avgRating,
@@ -55,7 +63,7 @@
                  OR s.category LIKE CONCAT('%', #{keyword}, '%'))
         </if>
         GROUP BY s.id, s.name, s.window_no, s.area, s.floor, s.location, s.category, s.manager_name, s.manager_phone,
-                 s.cover_image, s.description, s.hygiene_score, s.status, fav.favoriteCount
+                 s.cover_image, s.description, s.hygiene_score, s.health_cert_url, s.license_url, s.status, fav.favoriteCount
         ORDER BY CASE s.area WHEN 'south' THEN 0 ELSE 1 END ASC,
                  s.floor ASC, s.window_no ASC, s.id ASC
     </select>
@@ -70,6 +78,12 @@
             (SELECT u.username FROM sys_user u
               WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
               LIMIT 1) AS merchantUsername,
+            (SELECT u.email FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantEmail,
+            (SELECT u.phone FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantPhone,
             s.location,
             s.category,
             s.manager_name AS managerName,
@@ -77,6 +91,8 @@
             s.cover_image AS coverImage,
             s.description,
             s.hygiene_score AS hygieneScore,
+            s.health_cert_url AS healthCertUrl,
+            s.license_url AS licenseUrl,
             s.status,
             COUNT(DISTINCT d.id) AS dishCount,
             IFNULL(ROUND(AVG(r.rating), 2), 0) AS avgRating,
@@ -102,7 +118,7 @@
         ) fav ON fav.stall_id = s.id
         WHERE s.deleted = 0 AND s.id = #{id}
         GROUP BY s.id, s.name, s.window_no, s.area, s.floor, s.location, s.category, s.manager_name, s.manager_phone,
-                 s.cover_image, s.description, s.hygiene_score, s.status, fav.favoriteCount
+                 s.cover_image, s.description, s.hygiene_score, s.health_cert_url, s.license_url, s.status, fav.favoriteCount
     </select>
 
 </mapper>

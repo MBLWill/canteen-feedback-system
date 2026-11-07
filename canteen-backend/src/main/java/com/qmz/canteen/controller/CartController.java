@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Validated
 @RestController
 @RequestMapping("/cart")
@@ -60,7 +62,7 @@ public class CartController {
     }
 
     @PostMapping("/checkout")
-    public Result<CheckoutVO> checkout(@RequestBody @Valid CheckoutRequest request) {
+    public Result<List<CheckoutVO>> checkout(@RequestBody @Valid CheckoutRequest request) {
         return Result.success(cartService.checkout(request, UserContext.getUserId()));
     }
 }

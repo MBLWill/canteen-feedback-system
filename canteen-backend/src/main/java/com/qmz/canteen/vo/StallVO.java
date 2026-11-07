@@ -16,6 +16,10 @@ public class StallVO {
     private Integer floor;
     /** 商家登录账号，无商家账号时为 null */
     private String merchantUsername;
+    /** 商家账号绑定邮箱（个人中心认证信息，管理员查看用） */
+    private String merchantEmail;
+    /** 商家账号绑定电话 */
+    private String merchantPhone;
     private String location;
     private String category;
     private String managerName;
@@ -25,6 +29,10 @@ public class StallVO {
     private Integer status;
     /** 学校评定的卫生分，低于 80 需在档口卡片公示整改 */
     private java.math.BigDecimal hygieneScore;
+    /** 健康证图片（商家在个人中心上传） */
+    private String healthCertUrl;
+    /** 营业执照图片（商家在个人中心上传） */
+    private String licenseUrl;
     private Long dishCount;
     private Double avgRating;
     private Long reviewCount;

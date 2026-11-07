@@ -19,4 +19,7 @@ public class FeedbackQuery {
     private String type;
     private String status;
     private String keyword;
+
+    /** 数据范围：ALL-全部 MINE-仅本人；不传时按当前角色默认（管理员 ALL，其他 MINE） */
+    private String scope;
 }

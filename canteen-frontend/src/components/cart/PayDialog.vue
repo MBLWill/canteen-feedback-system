@@ -8,6 +8,9 @@
     class="pay-dialog"
   >
     <div class="pay-box">
+      <div v-if="pay.totalCount > 1" class="pay-progress">
+        第 {{ currentIndex }} / {{ pay.totalCount }} 笔
+      </div>
       <div class="pay-amount">¥{{ session?.amount ?? '0.00' }}</div>
       <div class="pay-no">支付单号 {{ session?.payNo }}</div>
       <el-tag size="small" :type="tagType" class="pay-tag">{{ statusLabel }}</el-tag>
@@ -17,15 +20,17 @@
       </div>
       <div v-if="pay.status === 'CREATED' && session?.payUrl" class="pay-actions">
         <el-button type="primary" size="small" @click="openCashier">打开收银台</el-button>
-        <div class="pay-hint">付款后回到本页，系统会自动确认结果</div>
+        <div class="pay-hint">付款后回到本页，点「查询支付结果」自动确认</div>
       </div>
-      <div v-if="pay.status === 'PAID'" class="pay-hint success">支付已完成，可在「我的订单」查看取餐时间</div>
+      <div v-if="pay.status === 'PAID' && pay.hasNext" class="pay-hint success">本笔已支付，继续支付下一笔</div>
+      <div v-if="pay.status === 'PAID' && !pay.hasNext" class="pay-hint success">全部支付完成，可在「我的订单」查看取餐时间</div>
     </div>
 
     <template #footer>
-      <el-button size="small" @click="pay.hide()">关闭</el-button>
-      <el-button v-if="pay.status === 'PAID'" type="success" size="small" @click="goOrders">查看我的订单</el-button>
-      <el-button v-else type="primary" size="small" :loading="pay.querying" @click="pay.query()">查询支付结果</el-button>
+      <el-button size="small" @click="close">关闭</el-button>
+      <el-button v-if="pay.status === 'PAID' && pay.hasNext" type="primary" size="small" @click="nextPay">下一笔</el-button>
+      <el-button v-else-if="pay.status === 'PAID'" type="success" size="small" @click="goOrders">查看我的订单</el-button>
+      <el-button v-else type="primary" size="small" :loading="pay.querying" @click="handleQuery">查询支付结果</el-button>
     </template>
   </el-dialog>
 </template>
@@ -44,11 +49,18 @@ const cartStore = useCartStore()
 const visible = computed({
   get: () => pay.visible,
   set: value => {
-    if (!value) pay.hide()
+    if (!value) pay.dismiss()
   }
 })
 
 const session = computed(() => pay.session)
+
+/** 当前是第几笔（1 起），用于多笔进度提示 */
+const currentIndex = computed(() => {
+  if (!session.value?.payNo || !pay.queue.length) return 1
+  const idx = pay.queue.findIndex(s => s.payNo === session.value.payNo)
+  return idx === -1 ? 1 : idx + 1
+})
 
 const statusLabel = computed(() => {
   if (pay.status === 'PAID') return '已支付'
@@ -70,8 +82,22 @@ async function handleMock() {
   await pay.mockPay()
 }
 
+async function handleQuery() {
+  const status = await pay.query()
+  // 查单确认已支付后，自动推进到下一笔
+  if (status === 'PAID') pay.advance()
+}
+
+function nextPay() {
+  pay.advance()
+}
+
+function close() {
+  pay.dismiss()
+}
+
 function goOrders() {
-  pay.hide()
+  pay.dismiss()
   router.push('/my/orders')
 }
 
@@ -90,6 +116,13 @@ onBeforeUnmount(() => pay.stopPoll())
 .pay-box {
   text-align: center;
   padding: 4px 0 8px;
+}
+
+.pay-progress {
+  font-size: 12px;
+  color: var(--brand);
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 
 .pay-amount {

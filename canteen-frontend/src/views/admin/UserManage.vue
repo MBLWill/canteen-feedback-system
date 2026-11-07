@@ -28,6 +28,9 @@
         </el-table-column>
         <el-table-column prop="studentNo" label="学号" width="130" />
         <el-table-column prop="phone" label="手机号" width="130" />
+        <el-table-column prop="email" label="绑定邮箱" min-width="170">
+          <template #default="{ row }">{{ row.email || '-' }}</template>
+        </el-table-column>
         <el-table-column label="评价数" width="90" align="center">
           <template #default="{ row }">{{ row.reviewCount ?? '-' }}</template>
         </el-table-column>

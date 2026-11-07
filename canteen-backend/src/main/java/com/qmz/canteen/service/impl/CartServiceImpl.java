@@ -150,74 +150,77 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional
-    public CheckoutVO checkout(CheckoutRequest request, Long userId) {
+    public List<CheckoutVO> checkout(CheckoutRequest request, Long userId) {
         List<CartItem> all = cartItemMapper.selectList(new LambdaQueryWrapper<CartItem>()
                 .eq(CartItem::getUserId, userId));
         if (all.isEmpty()) {
             throw new BusinessException("购物车是空的");
         }
 
+        // 确定要结算的条目：指定档口则只结算该档口；否则结算全部（含跨档口）
         Long chosen = request.getStallId();
-        if (chosen == null) {
-            List<Long> stallIds = all.stream().map(CartItem::getStallId).distinct().toList();
-            if (stallIds.size() > 1) {
-                throw new BusinessException("购物车包含多个档口的菜品，请选择档口分别结算");
-            }
-            chosen = stallIds.get(0);
-        }
-        final Long stallId = chosen;
-
         List<Long> pickedIds = request.getItemIds();
         List<CartItem> picked = all.stream()
-                .filter(i -> i.getStallId().equals(stallId))
+                .filter(i -> chosen == null || i.getStallId().equals(chosen))
                 .filter(i -> pickedIds == null || pickedIds.isEmpty() || pickedIds.contains(i.getId()))
                 .toList();
         if (picked.isEmpty()) {
-            throw new BusinessException("该档口没有勾选任何菜品");
+            throw new BusinessException("没有可结算的菜品");
         }
 
-        OrderRequest orderRequest = new OrderRequest();
-        orderRequest.setStallId(stallId);
-        orderRequest.setPickupTime(request.getPickupTime());
-        orderRequest.setRemark(request.getRemark());
-        orderRequest.setItems(picked.stream().map(item -> {
-            OrderItemRequest ir = new OrderItemRequest();
-            ir.setDishId(item.getDishId());
-            ir.setQuantity(item.getQuantity());
-            return ir;
-        }).toList());
+        // 跨档口按档口分组，每组生成一笔订单 + 一笔支付单
+        Map<Long, List<CartItem>> byStall = picked.stream()
+                .collect(Collectors.groupingBy(CartItem::getStallId, LinkedHashMap::new, Collectors.toList()));
 
-        Long orderId = orderService.createOrder(orderRequest, userId);
+        List<CheckoutVO> results = new java.util.ArrayList<>();
+        for (Map.Entry<Long, List<CartItem>> entry : byStall.entrySet()) {
+            Long stallId = entry.getKey();
+            List<CartItem> items = entry.getValue();
 
-        DiningOrder order = orderMapper.selectById(orderId);
-        BigDecimal subtotal = order.getTotalAmount();
-        CommerceProperties.Checkout checkout = props.getCheckout();
-        if (checkout.getMinOrderAmount().signum() > 0 && subtotal.compareTo(checkout.getMinOrderAmount()) < 0) {
-            throw new BusinessException("满 " + checkout.getMinOrderAmount() + " 元才能结算");
+            OrderRequest orderRequest = new OrderRequest();
+            orderRequest.setStallId(stallId);
+            orderRequest.setPickupTime(request.getPickupTime());
+            orderRequest.setRemark(request.getRemark());
+            orderRequest.setItems(items.stream().map(item -> {
+                OrderItemRequest ir = new OrderItemRequest();
+                ir.setDishId(item.getDishId());
+                ir.setQuantity(item.getQuantity());
+                return ir;
+            }).toList());
+
+            Long orderId = orderService.createOrder(orderRequest, userId);
+
+            DiningOrder order = orderMapper.selectById(orderId);
+            BigDecimal subtotal = order.getTotalAmount();
+            CommerceProperties.Checkout checkout = props.getCheckout();
+            if (checkout.getMinOrderAmount().signum() > 0 && subtotal.compareTo(checkout.getMinOrderAmount()) < 0) {
+                throw new BusinessException("满 " + checkout.getMinOrderAmount() + " 元才能结算");
+            }
+
+            BigDecimal fee = checkout.getPackingFee();
+            BigDecimal delivery = checkout.getDeliveryFee();
+            boolean freeDelivery = checkout.getFreeDeliveryThreshold().signum() > 0
+                    && subtotal.compareTo(checkout.getFreeDeliveryThreshold()) >= 0;
+            if (delivery.signum() > 0 && !freeDelivery) {
+                fee = fee.add(delivery);
+            }
+            BigDecimal total = checkout.money(subtotal.add(fee));
+
+            DiningOrder update = new DiningOrder();
+            update.setId(orderId);
+            update.setTotalAmount(total);
+            update.setExpireTime(LocalDateTime.now().plusMinutes(props.getOrder().getPayTimeoutMinutes()));
+            orderMapper.updateById(update);
+            order.setTotalAmount(total);
+            order.setExpireTime(update.getExpireTime());
+
+            CheckoutVO vo = payService.createForOrder(orderId, userId);
+            results.add(vo);
         }
-
-        BigDecimal fee = checkout.getPackingFee();
-        BigDecimal delivery = checkout.getDeliveryFee();
-        boolean freeDelivery = checkout.getFreeDeliveryThreshold().signum() > 0
-                && subtotal.compareTo(checkout.getFreeDeliveryThreshold()) >= 0;
-        if (delivery.signum() > 0 && !freeDelivery) {
-            fee = fee.add(delivery);
-        }
-        BigDecimal total = checkout.money(subtotal.add(fee));
-
-        DiningOrder update = new DiningOrder();
-        update.setId(orderId);
-        update.setTotalAmount(total);
-        update.setExpireTime(LocalDateTime.now().plusMinutes(props.getOrder().getPayTimeoutMinutes()));
-        orderMapper.updateById(update);
-        order.setTotalAmount(total);
-        order.setExpireTime(update.getExpireTime());
-
-        CheckoutVO vo = payService.createForOrder(orderId, userId);
 
         // 只清掉本次结算的条目，未勾选的留在购物车
         cartItemMapper.deleteBatchIds(picked.stream().map(CartItem::getId).toList());
-        return vo;
+        return results;
     }
 
     private CartItem ownedItem(Long itemId, Long userId) {

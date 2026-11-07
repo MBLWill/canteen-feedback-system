@@ -12,7 +12,7 @@
         </span>
         <span class="bar-money">
           <b>¥{{ cartStore.totalAmount }}</b>
-          <small>{{ cartStore.stallCount > 1 ? `${cartStore.stallCount} 个档口 · 分别结算` : '待取餐' }}</small>
+          <small>{{ cartStore.stallCount > 1 ? `${cartStore.stallCount} 个档口 · 一键结算` : '待取餐' }}</small>
         </span>
       </button>
       <button class="bar-go" @click="cartStore.openDrawer()">去结算</button>

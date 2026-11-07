@@ -332,7 +332,7 @@ CREATE TABLE IF NOT EXISTS pay_record (
     amount      DECIMAL(10, 2) NOT NULL COMMENT '支付金额',
     status      VARCHAR(20)   NOT NULL DEFAULT 'CREATED' COMMENT 'CREATED-待支付 PAID-已支付 CLOSED-已关闭',
     trade_no    VARCHAR(64)   NULL COMMENT '支付平台交易号',
-    pay_url     VARCHAR(1000) NULL COMMENT '支付跳转地址或二维码内容',
+    pay_url     VARCHAR(4000) NULL COMMENT '支付跳转地址或二维码内容（支付宝沙箱收银台 URL 含签名，需足够长）',
     raw_notify  TEXT          NULL COMMENT '回调原始报文，排障用',
     paid_time   DATETIME      NULL COMMENT '支付成功时间',
     create_time DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

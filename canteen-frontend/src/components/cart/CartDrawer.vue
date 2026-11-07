@@ -30,7 +30,7 @@
         </header>
 
         <div v-if="step === 'list'" class="dr-body">
-          <div v-if="!groups.length" class="dr-empty">
+          <div v-if="!allItems.length" class="dr-empty">
             <div class="empty-ring">
               <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none"/>
@@ -43,72 +43,64 @@
           </div>
 
           <template v-else>
-            <div v-if="groups.length > 1" class="stall-pills">
-              <button
-                v-for="g in groups"
-                :key="g.stallId"
-                class="pill"
-                :class="{ active: g.stallId === activeStallId }"
-                @click="activeStallId = g.stallId"
-              >
-                {{ g.stallName }}
-                <i>{{ g.totalQuantity }}</i>
-              </button>
-            </div>
-
-            <div v-if="currentGroup" class="stall-card">
+            <div class="stall-card">
               <div class="stall-head">
-                <span class="stall-name">{{ currentGroup.stallName }}</span>
-                <span class="stall-window">{{ currentGroup.windowNo }} 号窗口</span>
-                <button class="stall-clear" @click="removeStall">清空本档口</button>
+                <span class="stall-name">全部菜品</span>
+                <span class="stall-window">{{ allItems.length }} 种 · 来自 {{ groups.length }} 个档口</span>
+                <button class="stall-clear" @click="clearAll">清空购物车</button>
               </div>
 
-              <div
-                v-for="item in currentGroup.items"
-                :key="item.id"
-                class="row"
-                :class="{ off: item.dishStatus !== 1 }"
-              >
-                <label class="check" @click.prevent="toggleItem(item)">
-                  <span class="box" :class="{ checked: isChecked(item) }">
-                    <svg v-if="isChecked(item)" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                  </span>
-                </label>
-
-                <div class="thumb" :style="{ background: coverGradient(item.category) }">
-                  <img v-if="item.image && !broken[item.id]" :src="item.image" alt="" @error="broken[item.id] = true">
-                  <span v-else>{{ (item.dishName || '菜').slice(0, 1) }}</span>
+              <template v-for="g in groups" :key="g.stallId">
+                <div class="stall-divider">
+                  <span class="stall-divider-name">{{ g.stallName }}</span>
+                  <span class="stall-divider-window">{{ g.windowNo }} 号窗口</span>
+                  <span class="stall-divider-count">{{ g.totalQuantity }} 件</span>
                 </div>
+                <div
+                  v-for="item in g.items"
+                  :key="item.id"
+                  class="row"
+                  :class="{ off: item.dishStatus !== 1 }"
+                >
+                  <label class="check" @click.prevent="toggleItem(item)">
+                    <span class="box" :class="{ checked: isChecked(item) }">
+                      <svg v-if="isChecked(item)" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 6L9 17l-5-5"/>
+                      </svg>
+                    </span>
+                  </label>
 
-                <div class="info">
-                  <div class="name">
-                    {{ item.dishName }}
-                    <em v-if="item.dishStatus !== 1">已下架</em>
+                  <div class="thumb" :style="{ background: coverGradient(item.category) }">
+                    <img v-if="item.image && !broken[item.id]" :src="item.image" alt="" @error="broken[item.id] = true">
+                    <span v-else>{{ (item.dishName || '菜').slice(0, 1) }}</span>
                   </div>
-                  <div class="unit">¥{{ item.price }}<small> / 份</small></div>
-                </div>
 
-                <div class="stepper">
-                  <button :disabled="displayQty(item) <= 1" @click="changeQty(item, displayQty(item) - 1)">
-                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/></svg>
-                  </button>
-                  <span>{{ displayQty(item) }}</span>
-                  <button :disabled="displayQty(item) >= maxQty" @click="changeQty(item, displayQty(item) + 1)">
-                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  <div class="info">
+                    <div class="name">
+                      {{ item.dishName }}
+                      <em v-if="item.dishStatus !== 1">已下架</em>
+                    </div>
+                    <div class="unit">¥{{ item.price }}<small> / 份</small></div>
+                  </div>
+
+                  <div class="stepper">
+                    <button :disabled="displayQty(item) <= 1" @click="changeQty(item, displayQty(item) - 1)">
+                      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/></svg>
+                    </button>
+                    <span>{{ displayQty(item) }}</span>
+                    <button :disabled="displayQty(item) >= maxQty" @click="changeQty(item, displayQty(item) + 1)">
+                      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    </button>
+                  </div>
+
+                  <button class="del" title="移除" @click="removeItem(item)">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/>
+                    </svg>
                   </button>
                 </div>
-
-                <button class="del" title="移除" @click="removeItem(item)">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/>
-                  </svg>
-                </button>
-              </div>
+              </template>
             </div>
-
-            <p v-if="groups.length > 1" class="multi-tip">不同档口出餐时间不同，需分别结算</p>
           </template>
         </div>
 
@@ -139,15 +131,15 @@
           </div>
 
           <div class="cf-block">
-            <div class="cf-label">{{ currentGroup?.stallName }} · {{ checkedItems.length }} 种菜品</div>
+            <div class="cf-label">已选菜品 · {{ checkedItems.length }} 种 · {{ groups.length }} 个档口</div>
             <div class="cf-list">
               <div v-for="item in checkedItems" :key="item.id" class="cf-row">
-                <span>{{ item.dishName }}</span>
+                <span class="cf-name">{{ item.dishName }}<i class="cf-stall">{{ item.stallName }}</i></span>
                 <span class="cf-qty">×{{ displayQty(item) }}</span>
                 <span class="cf-amt">¥{{ lineAmount(item) }}</span>
               </div>
             </div>
-            <p class="cf-tip">打包费、配送费按下单结果计算</p>
+            <p class="cf-tip">不同档口将自动拆单分别支付；打包费、配送费按下单结果计算</p>
           </div>
         </div>
 
@@ -199,7 +191,6 @@ const payStore = usePayStore()
 const cart = ref({ groups: [], totalQuantity: 0, totalAmount: '0.00', maxQuantityPerDish: 10 })
 const groups = computed(() => cart.value.groups || [])
 const maxQty = computed(() => cart.value.maxQuantityPerDish || 10)
-const activeStallId = ref(null)
 
 const step = ref('list')
 const submitting = ref(false)
@@ -211,16 +202,15 @@ const deselected = reactive({})
 const localQty = reactive({})
 const broken = reactive({})
 
-const currentGroup = computed(() => {
-  if (!groups.value.length) return null
-  return groups.value.find(g => g.stallId === activeStallId.value) || groups.value[0]
-})
+/** 所有档口的菜品合并成一个平铺列表，不分档口展示 */
+const allItems = computed(() =>
+  groups.value.flatMap(g => (g.items || []).map(i => ({ ...i })))
+)
+/** 在售菜品（可勾选） */
+const salableItems = computed(() => allItems.value.filter(i => i.dishStatus === 1))
 
-const checkedItems = computed(() => (currentGroup.value?.items || []).filter(i => isChecked(i) && i.dishStatus === 1))
-const allChecked = computed(() => {
-  const items = (currentGroup.value?.items || []).filter(i => i.dishStatus === 1)
-  return items.length > 0 && items.every(i => isChecked(i))
-})
+const checkedItems = computed(() => salableItems.value.filter(i => isChecked(i)))
+const allChecked = computed(() => salableItems.value.length > 0 && salableItems.value.every(i => isChecked(i)))
 const checkedQuantity = computed(() => checkedItems.value.reduce((sum, i) => sum + displayQty(i), 0))
 const checkedAmount = computed(() =>
   checkedItems.value.reduce((sum, i) => sum + Number(i.price) * displayQty(i), 0).toFixed(2)
@@ -245,9 +235,8 @@ function toggleItem(item) {
 }
 
 function toggleAll() {
-  const items = (currentGroup.value?.items || []).filter(i => i.dishStatus === 1)
   const target = !allChecked.value
-  for (const item of items) {
+  for (const item of salableItems.value) {
     if (target) delete deselected[item.id]
     else deselected[item.id] = true
   }
@@ -259,12 +248,7 @@ async function loadCart() {
   cartStore.count = cart.value.totalQuantity || 0
   cartStore.totalAmount = cart.value.totalAmount ?? '0.00'
   cartStore.stallCount = groups.value.length
-  // 档口消失后回落到第一个
-  if (groups.value.length && !groups.value.some(g => g.stallId === activeStallId.value)) {
-    activeStallId.value = groups.value[0].stallId
-  }
   if (!groups.value.length) {
-    activeStallId.value = null
     step.value = 'list'
   }
 }
@@ -293,15 +277,15 @@ function removeItem(item) {
     .catch(() => {})
 }
 
-function removeStall() {
-  const group = currentGroup.value
-  if (!group) return
-  ElMessageBox.confirm(`清空「${group.stallName}」的 ${group.totalQuantity} 件商品？`, '提示', { type: 'warning' })
+function clearAll() {
+  const total = groups.value.reduce((sum, g) => sum + (g.totalQuantity || 0), 0)
+  ElMessageBox.confirm(`清空购物车的 ${total} 件商品？`, '提示', { type: 'warning' })
     .then(async () => {
-      await Promise.all(group.items.map(i => removeCartItem(i.id)))
+      await clearCart()
+      deselected && Object.keys(deselected).forEach(k => delete deselected[k])
       await loadCart()
       cartStore.refresh()
-      ElMessage.success('已清空本档口')
+      ElMessage.success('已清空购物车')
     })
     .catch(() => {})
 }
@@ -339,12 +323,12 @@ async function submit() {
   submitting.value = true
   try {
     const res = await checkoutCart({
-      stallId: currentGroup.value.stallId,
       pickupTime: form.pickupTime,
       remark: form.remark || undefined,
       itemIds: checkedItems.value.map(i => i.id)
     })
-    const vo = res.data
+    // 后端跨档口会自动拆成多笔订单+支付单，返回数组
+    const list = Array.isArray(res.data) ? res.data : [res.data]
     step.value = 'list'
     form.remark = ''
     form.pickupTime = ''
@@ -352,14 +336,8 @@ async function submit() {
     await loadCart()
     cartStore.refresh()
 
-    payStore.open({
-      payNo: vo.payNo,
-      amount: vo.amount,
-      channel: vo.channel,
-      payUrl: vo.payUrl,
-      status: vo.paid ? 'PAID' : 'CREATED'
-    })
-    if (!vo.paid && vo.payUrl) window.open(vo.payUrl, '_blank', 'noopener')
+    // 打开支付面板，按笔依次支付
+    payStore.openBatch(list)
     cartStore.closeDrawer()
   } finally {
     submitting.value = false
@@ -586,6 +564,32 @@ onBeforeUnmount(() => {
 }
 
 .stall-clear:hover { color: #b42318; }
+
+.stall-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 6px;
+  background: #faf6f0;
+  border-bottom: 1px solid #f3eee7;
+}
+
+.stall-divider-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.stall-divider-window {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.stall-divider-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
 
 .row {
   display: flex;
@@ -839,6 +843,18 @@ onBeforeUnmount(() => {
   align-items: center;
   font-size: 13px;
   color: var(--text-2);
+}
+
+.cf-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-name .cf-stall {
+  margin-left: 6px;
+  font-size: 11px;
+  font-style: normal;
+  color: var(--text-3);
 }
 
 .cf-qty {
