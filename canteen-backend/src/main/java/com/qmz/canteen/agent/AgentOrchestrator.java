@@ -46,6 +46,9 @@ public class AgentOrchestrator {
             传 area（south/north）和 floor（1/2）过滤后再回答。
             制度类问题（怎么投诉、怎么预约、评价能不能改）以 search_faq 返回的 answer 为准，
             按它写的做法和入口回答，不要自己另编一套流程，也不要否定知识库里说的做法。
+            用户说「加入购物车 / 帮我买 / 来一份 / 加购 / 帮我点这几样」时，必须调用 add_to_cart，
+            要几样就分别调用几次，不能只把菜列出来；加购成功后告诉用户已加入购物车，
+            并提醒到购物车或结算页自己支付，不要替用户支付。
             工具查不到就如实说没有找到。回答用中文，简洁口语化，120 字以内，
             涉及具体菜品时点出菜名、窗口和价格。
             """;
@@ -148,6 +151,11 @@ public class AgentOrchestrator {
                     List<LlmProtocol.ToolCall> forcedCalls = forced.getChoices().get(0).getMessage().getToolCalls();
                     if (forcedCalls != null && !forcedCalls.isEmpty()) {
                         appendAssistantAndRunTools(messages, forcedCalls, calledTools, toolResults, question);
+                        // 加购类操作需要「先查菜、再加购」，强制查询后还没加购就继续下一轮
+                        if (needsAction(question) && !calledTools.contains("add_to_cart")) {
+                            log.info("强制查询后仍未调用 add_to_cart，继续下一轮");
+                            continue;
+                        }
                         // 工具结果已回填，直接进入「只总结、不再调工具」的收敛阶段，
                         // 不能再走 auto 循环，否则模型又会跳过工具直接作答。
                         return summarize(messages, calledTools, toolResults,
@@ -177,8 +185,12 @@ public class AgentOrchestrator {
             // 流式场景：工具已经查完，数据齐了，剩下的只是「组织语言」。
             // 若继续走 auto 循环，模型会在下一轮直接返回完整文本（非流式），
             // 前端就只能收到一次性的一大段，失去流式意义。
-            // 所以这里立刻转入 summarize，用 SSE 逐字生成。
+            // 但加购这类真实操作往往要先查菜再加购，未调用 add_to_cart 前不能提前收口。
             if (onDelta != null && !toolResults.isEmpty()) {
+                if (needsAction(question) && !calledTools.contains("add_to_cart")) {
+                    log.info("识别到加购意图但尚未调用 add_to_cart，继续工具轮次");
+                    continue;
+                }
                 // 用换行把「正在查询…」与正文分开，前端渲染更自然
                 onDelta.accept("\n");
                 return summarize(messages, calledTools, toolResults,
@@ -287,8 +299,9 @@ public class AgentOrchestrator {
                 // 兜底：模型有时会把「某道菜」误判成「新菜榜单」，或把菜名截短
                 // （「验证用新菜」→「新菜」）。只要原始提问里出现了完整菜名，
                 // 就以精确匹配结果为准，避免答非所问。
+                // add_to_cart 是真实写操作，结果不能被菜品检索结果覆盖。
                 Object byRaw = tools.searchByRawQuestion(rawQuestion, 5);
-                if (!isEmptyDishResult(byRaw)) {
+                if (!"add_to_cart".equals(name) && !isEmptyDishResult(byRaw)) {
                     if (!"search_dishes".equals(name)) {
                         log.info("模型调用 {} 未覆盖具体菜品，用原始提问精确命中并覆盖", name);
                     } else {
@@ -348,6 +361,21 @@ public class AgentOrchestrator {
         req.setTemperature(props.getTemperature());
         req.setMaxTokens(props.getMaxTokens());
         return llmClient.chat(req);
+    }
+
+    /** 判断问题是否要求真实操作（加购），未完成加购前不能提前收敛 */
+    static boolean needsAction(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.trim();
+        String[] keywords = {"加购", "加入购物车", "帮我买", "帮我点", "来一份", "买一份", "点一份"};
+        for (String k : keywords) {
+            if (q.contains(k)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 判断问题是否属于「必须查库」的类型，避免对纯闲聊也强制调工具 */

@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
@@ -92,6 +94,34 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "评价不存在");
         }
         review.setStatus(status);
+        dishReviewMapper.updateById(review);
+    }
+
+    @Override
+    public PageResult<ReviewVO> pageMerchantReviews(Long stallId, ReviewQuery query) {
+        long current = query.getCurrent() == null || query.getCurrent() < 1 ? 1 : query.getCurrent();
+        long size = query.getSize() == null || query.getSize() < 1 ? 10 : Math.min(query.getSize(), 100);
+        IPage<ReviewVO> result = dishReviewMapper.selectMerchantReviewPage(new Page<>(current, size), query, stallId);
+        return PageResult.of(result);
+    }
+
+    @Override
+    @Transactional
+    public void replyReview(Long reviewId, Long stallId, String reply) {
+        String content = reply == null ? "" : reply.trim();
+        if (content.isEmpty()) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "回复内容不能为空");
+        }
+        if (content.length() > 500) {
+            throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "回复内容不能超过500字");
+        }
+        DishReview review = dishReviewMapper.selectByIdAndStallId(reviewId, stallId);
+        if (review == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "评价不存在或不属于本档口");
+        }
+        review.setMerchantReply(content);
+        review.setMerchantReplyTime(LocalDateTime.now());
+        review.setHandled(1);
         dishReviewMapper.updateById(review);
     }
 }

@@ -54,7 +54,8 @@ canteen:
     model: glm-5.3-flash
     # glm-5.3-flash 单轮含思考链，实测首轮 6~7s、第二轮 8~9s，超时给足
     timeout-ms: 30000
-    max-tool-rounds: 3
+    # 一次提问里可能要分别加购多道菜，轮数太少会来不及调用 add_to_cart
+    max-tool-rounds: 4
     history-limit: 8
     temperature: 0.2
     max-tokens: 800

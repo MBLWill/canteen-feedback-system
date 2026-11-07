@@ -306,7 +306,7 @@ async function send(text) {
   const botMsg = reactive({
     role: 'bot',
     streaming: false,
-    answer: { text: '', hit: true, items: [], quickReplies: [], sources: null }
+    answer: { text: '', hit: true, items: [], quickReplies: [], sources: null, actions: [] }
   })
   messages.value.push(botMsg)
   let streaming = false

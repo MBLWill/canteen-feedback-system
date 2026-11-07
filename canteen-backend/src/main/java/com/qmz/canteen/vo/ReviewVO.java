@@ -20,6 +20,9 @@ public class ReviewVO {
     private String content;
     private Integer anonymous;
     private Integer status;
+    private String merchantReply;
+    private LocalDateTime merchantReplyTime;
+    private Integer handled;
     private Boolean mine;
     private LocalDateTime createTime;
 }

@@ -2,13 +2,19 @@
   <div class="page-container">
     <el-card shadow="never" class="page-card">
       <template #header>
-        <div style="display: flex; justify-content: space-between; align-items: center">
+        <div class="manage-header">
           <span style="font-weight: 600">首页轮播广告管理</span>
-          <el-button type="primary" @click="openCreate">＋ 新增广告</el-button>
+          <div class="batch-toolbar">
+            <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
+            <span class="selected-hint">已选 {{ selectedRows.length }} 项</span>
+            <el-button type="danger" plain :disabled="!selectedRows.length" :loading="batchDeleting" @click="handleBatchDelete">批量删除</el-button>
+            <el-button type="primary" @click="openCreate">＋ 新增广告</el-button>
+          </div>
         </div>
       </template>
 
-      <el-table :data="list" border stripe v-loading="loading">
+      <el-table ref="tableRef" :data="list" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="sortNo" label="排序" width="70" align="center" />
         <el-table-column label="预览" width="220">
           <template #default="{ row }">
@@ -91,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageBanners, createBanner, updateBanner, deleteBanner } from '@/api/banner'
 import { listStalls } from '@/api/stall'
@@ -101,6 +107,22 @@ const submitting = ref(false)
 const list = ref([])
 const stalls = ref([])
 const dialogVisible = ref(false)
+const tableRef = ref()
+const selectedRows = ref([])
+const batchDeleting = ref(false)
+
+const allSelected = computed({
+  get: () => list.value.length > 0 && selectedRows.value.length === list.value.length,
+  set: (val) => {
+    tableRef.value?.clearSelection()
+    if (val) list.value.forEach(row => tableRef.value?.toggleRowSelection(row, true))
+  }
+})
+const isIndeterminate = computed(() => selectedRows.value.length > 0 && selectedRows.value.length < list.value.length)
+
+function onSelectionChange(rows) {
+  selectedRows.value = rows
+}
 
 const emptyForm = {
   id: null,
@@ -140,6 +162,8 @@ async function loadData() {
   try {
     const res = await pageBanners({ current: 1, size: 100 })
     list.value = res.data.records
+    selectedRows.value = []
+    nextTick(() => tableRef.value?.clearSelection())
   } finally {
     loading.value = false
   }
@@ -188,6 +212,27 @@ function handleDelete(row) {
     .catch(() => {})
 }
 
+async function handleBatchDelete() {
+  const rows = selectedRows.value
+  if (!rows.length) return
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${rows.length} 项吗？删除后不可恢复`, '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  batchDeleting.value = true
+  try {
+    const results = await Promise.allSettled(rows.map(row => deleteBanner(row.id)))
+    const success = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.length - success
+    if (failed) ElMessage.warning(`成功删除 ${success} 项，${failed} 项删除失败`)
+    else ElMessage.success(`成功删除 ${success} 项`)
+    await loadData()
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
 onMounted(async () => {
   const res = await listStalls()
   stalls.value = res.data
@@ -196,6 +241,26 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.manage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selected-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .banner-preview {
   height: 44px;
   border-radius: 8px;

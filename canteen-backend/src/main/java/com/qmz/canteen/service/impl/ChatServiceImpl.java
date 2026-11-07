@@ -15,11 +15,14 @@ import com.qmz.canteen.entity.User;
 import com.qmz.canteen.mapper.ChatLogMapper;
 import com.qmz.canteen.mapper.StatsMapper;
 import com.qmz.canteen.mapper.UserMapper;
+import com.qmz.canteen.security.LoginUser;
 import com.qmz.canteen.security.UserContext;
+import com.qmz.canteen.security.UserRole;
 import com.qmz.canteen.service.ChatService;
 import com.qmz.canteen.service.FaqService;
 import com.qmz.canteen.service.StallService;
 import com.qmz.canteen.service.StatsService;
+import com.qmz.canteen.vo.ChatActionVO;
 import com.qmz.canteen.vo.ChatAnswerVO;
 import com.qmz.canteen.vo.ChatItemVO;
 import com.qmz.canteen.vo.ChatLogVO;
@@ -59,6 +62,8 @@ public class ChatServiceImpl implements ChatService {
 
     private static final long INDEX_TTL = 5 * 60 * 1000L;
     private static final int RATE_LIMIT = 30;
+    private static final String AGENT_BUSY_TEXT =
+            "助手暂时繁忙，请稍后再试。你也可以换个问法，或直接到菜品、档口页面查看。";
     private static final Pattern WINDOW_NO = Pattern.compile("(\\d{1,2})\\s*(号|窗口)");
 
     private static final List<IntentDef> INTENTS = List.of(
@@ -172,12 +177,12 @@ public class ChatServiceImpl implements ChatService {
         }
         try {
             AgentOrchestrator.AgentResult result = orchestrator.chatStream(question, history, onDelta);
-            return toAnswer(result);
+            return toAnswer(result, question);
         } catch (LlmClient.LlmException e) {
             log.warn("智能体流式调用失败，降级到规则引擎：{}", e.getMessage());
             if (!agentProperties.isFallbackToRule()) {
                 ChatAnswerVO answer = base("agent_error", "智能助手繁忙", "text", false);
-                answer.setText("智能助手暂时不可用（" + e.getMessage() + "），请稍后再试，或直接换个问法。");
+                answer.setText(AGENT_BUSY_TEXT);
                 answer.setCanFeedback(true);
                 return answer;
             }
@@ -189,14 +194,43 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /** 把编排结果转成前端契约的 ChatAnswerVO */
-    private ChatAnswerVO toAnswer(AgentOrchestrator.AgentResult result) {
+    private ChatAnswerVO toAnswer(AgentOrchestrator.AgentResult result, String question) {
         ChatAnswerVO answer = base("agent", "智能问答", "text", true);
         answer.setText(result.text());
-        answer.setItems(cardBuilder.build(result.toolResults()));
+        answer.setItems(cardBuilder.build(question, result.toolResults()));
+        answer.setActions(buildCartActions(result));
         answer.setSources(List.of("智能助手 · 实时查询食堂数据库"));
         answer.setQuickReplies(List.of("今天有什么推荐", "哪个窗口最好", "怎么投诉某个窗口"));
         answer.setCanFeedback(false);
         return answer;
+    }
+
+    /**
+     * 本轮有成功的加购操作时，给答案底部补「去购物车」「去结算」按钮。
+     * 仅学生账号生成；支付仍由用户自己在购物车/结算页完成。
+     */
+    private List<ChatActionVO> buildCartActions(AgentOrchestrator.AgentResult result) {
+        LoginUser user = UserContext.get();
+        if (user == null || !UserRole.STUDENT.name().equals(user.getRole())) {
+            return List.of();
+        }
+        Object cartResult = result.toolResults() == null ? null : result.toolResults().get("add_to_cart");
+        if (!(cartResult instanceof Map<?, ?> map) || !Boolean.TRUE.equals(map.get("success"))) {
+            return List.of();
+        }
+        ChatActionVO goCart = new ChatActionVO();
+        goCart.setType("link");
+        goCart.setLabel("去购物车");
+        goCart.setPath("/cart");
+        goCart.setPrimary(true);
+
+        ChatActionVO checkout = new ChatActionVO();
+        checkout.setType("link");
+        checkout.setLabel("去结算");
+        checkout.setPath("/cart");
+        checkout.setPrimary(false);
+
+        return List.of(goCart, checkout);
     }
 
     /**
@@ -211,12 +245,12 @@ public class ChatServiceImpl implements ChatService {
         }
         try {
             AgentOrchestrator.AgentResult result = orchestrator.chat(question, history);
-            return toAnswer(result);
+            return toAnswer(result, question);
         } catch (LlmClient.LlmException e) {
             log.warn("智能体调用失败，降级到规则引擎：{}", e.getMessage());
             if (!agentProperties.isFallbackToRule()) {
                 ChatAnswerVO answer = base("agent_error", "智能助手繁忙", "text", false);
-                answer.setText("智能助手暂时不可用（" + e.getMessage() + "），请稍后再试，或直接换个问法。");
+                answer.setText(AGENT_BUSY_TEXT);
                 answer.setCanFeedback(true);
                 return answer;
             }
@@ -689,6 +723,7 @@ public class ChatServiceImpl implements ChatService {
         answer.setCanFeedback(false);
         answer.setItems(List.of());
         answer.setQuickReplies(List.of());
+        answer.setActions(List.of());
         return answer;
     }
 
