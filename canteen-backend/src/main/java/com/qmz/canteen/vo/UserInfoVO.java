@@ -23,4 +23,17 @@ public class UserInfoVO {
     private Long favoriteCount;
     private Long feedbackCount;
     private LocalDateTime createTime;
+
+    // -------- 商家账号关联档口信息（商家管理页使用） --------
+    private String stallName;
+    private String stallWindowNo;
+    private String stallArea;
+    private Integer stallFloor;
+    private String stallCategory;
+    private String managerName;
+    private String managerPhone;
+    private java.math.BigDecimal hygieneScore;
+    private Long dishCount;
+    private Double avgRating;
+    private Long salesCount;
 }

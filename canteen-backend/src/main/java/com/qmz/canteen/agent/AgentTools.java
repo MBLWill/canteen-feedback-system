@@ -394,6 +394,7 @@ public class AgentTools {
             }
             DishBriefVO b = byId.get(d.getId());
             Map<String, Object> item = new LinkedHashMap<>();
+            item.put("dishId", d.getId());
             item.put("dishName", d.getName());
             item.put("price", money(d.getPrice()));
             item.put("featured", featured);

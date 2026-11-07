@@ -30,6 +30,8 @@ public class StallVO {
     private Long reviewCount;
     private Double goodRate;
     private Long favoriteCount;
+    /** 累计销量（销售记录 + 已支付订单） */
+    private Long salesCount;
     /** 招牌菜，优先取 featured=1 的菜品，不足时按评分补齐 */
     private List<DishVO> signatureDishes;
 }

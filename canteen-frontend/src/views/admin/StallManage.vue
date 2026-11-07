@@ -3,7 +3,13 @@
     <el-card shadow="never" class="page-card">
       <template #header>
         <div class="manage-header">
-          <span style="font-weight: 600">档口 / 窗口管理</span>
+          <div class="header-left">
+            <span style="font-weight: 600">档口 / 窗口管理</span>
+            <el-select v-model="zone" size="small" style="width: 150px" @change="loadData">
+              <el-option v-for="opt in zoneOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
+            </el-select>
+            <span class="muted" style="font-size: 12px">点击任意一行进入该档口菜单页</span>
+          </div>
           <div class="batch-toolbar">
             <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
             <span class="selected-hint">已选 {{ selectedRows.length }} 项</span>
@@ -13,7 +19,17 @@
         </div>
       </template>
 
-      <el-table ref="tableRef" :data="list" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
+      <el-table
+        ref="tableRef"
+        :data="list"
+        row-key="id"
+        border
+        stripe
+        v-loading="loading"
+        row-class-name="clickable-row"
+        @selection-change="onSelectionChange"
+        @row-click="handleRowClick"
+      >
         <el-table-column type="selection" width="48" />
         <el-table-column prop="windowNo" label="窗口号" width="90" align="center" />
         <el-table-column label="区域" width="80" align="center">
@@ -26,7 +42,11 @@
         <el-table-column label="楼层" width="70" align="center">
           <template #default="{ row }">{{ row.floor }} 楼</template>
         </el-table-column>
-        <el-table-column prop="name" label="档口名称" min-width="140" />
+        <el-table-column label="档口名称" min-width="160">
+          <template #default="{ row }">
+            <span class="stall-name-cell">{{ row.name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="商家账号" width="110" align="center">
           <template #default="{ row }">
             <span v-if="row.merchantUsername">{{ row.merchantUsername }}</span>
@@ -35,6 +55,7 @@
         </el-table-column>
         <el-table-column prop="category" label="主营" width="100" />
         <el-table-column prop="dishCount" label="菜品数" width="90" align="center" />
+        <el-table-column prop="salesCount" label="销量" width="90" align="center" />
         <el-table-column label="评分" width="110" align="center">
           <template #default="{ row }">
             <span style="color: #e35f00; font-weight: 600">{{ row.avgRating }}</span>
@@ -165,15 +186,18 @@
         <el-button type="primary" :loading="submitting" @click="submitPwd">保存</el-button>
       </template>
     </el-dialog>
+
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listStalls, createStall, updateStall, deleteStall, resetMerchantPassword, listWindowNos } from '@/api/stall'
 import { createInspectTodo } from '@/api/merchant'
 
+const router = useRouter()
 const loading = ref(false)
 const submitting = ref(false)
 const list = ref([])
@@ -223,6 +247,20 @@ const areaFloorOptions = [
   { value: 'south-2', label: '南区食堂 2 楼' },
   { value: 'north-1', label: '北区食堂' }
 ]
+
+// 列表左上角筛选：全部 / 南区1楼 / 南区2楼 / 北区
+const zone = ref('all')
+const zoneOptions = [
+  { value: 'all', label: '全部区域' },
+  { value: 'south-1', label: '南区食堂 1 楼' },
+  { value: 'south-2', label: '南区食堂 2 楼' },
+  { value: 'north-1', label: '北区食堂' }
+]
+const zoneParams = computed(() => {
+  if (zone.value === 'all') return {}
+  const [area, floor] = zone.value.split('-')
+  return { area, floor: Number(floor) }
+})
 
 // 当前区域楼层下 1-20 档位的占用情况
 const occupied = ref([])
@@ -290,7 +328,7 @@ const rules = {
 async function loadData() {
   loading.value = true
   try {
-    const res = await listStalls()
+    const res = await listStalls(zoneParams.value)
     list.value = res.data
     selectedRows.value = []
     nextTick(() => tableRef.value?.clearSelection())
@@ -420,6 +458,12 @@ async function handleBatchDelete() {
   }
 }
 
+function handleRowClick(row, column) {
+  // 勾选框和操作列不触发跳转
+  if (column?.type === 'selection' || column?.label === '操作') return
+  router.push(`/admin/stalls/${row.id}`)
+}
+
 onMounted(loadData)
 </script>
 
@@ -443,4 +487,25 @@ onMounted(loadData)
   font-size: 12px;
   color: var(--text-3);
 }
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stall-name-cell {
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+:deep(.clickable-row) {
+  cursor: pointer;
+}
+
+:deep(.clickable-row:hover > td) {
+  background: #fff8f0 !important;
+}
+
 </style>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qmz.canteen.mapper.UserMapper">
+
+    <select id="selectMerchantPage" resultType="com.qmz.canteen.vo.UserInfoVO">
+        SELECT
+            u.id,
+            u.username,
+            u.real_name AS realName,
+            u.role,
+            u.stall_id AS stallId,
+            u.phone,
+            u.email,
+            u.avatar,
+            u.status,
+            u.create_time AS createTime,
+            s.name AS stallName,
+            s.window_no AS stallWindowNo,
+            s.area AS stallArea,
+            s.floor AS stallFloor,
+            s.category AS stallCategory,
+            s.manager_name AS managerName,
+            s.manager_phone AS managerPhone,
+            s.hygiene_score AS hygieneScore,
+            (SELECT COUNT(*) FROM dish d
+              WHERE d.stall_id = s.id AND d.deleted = 0 AND d.status = 1) AS dishCount,
+            (SELECT IFNULL(ROUND(AVG(r.rating), 2), 0)
+              FROM dish_review r
+              INNER JOIN dish d2 ON d2.id = r.dish_id AND d2.deleted = 0
+              WHERE d2.stall_id = s.id AND r.deleted = 0 AND r.status = 1) AS avgRating,
+            (SELECT IFNULL(SUM(x.qty), 0) FROM (
+                SELECT ds.quantity AS qty FROM dish_sales ds WHERE ds.stall_id = s.id
+                UNION ALL
+                SELECT oi.quantity AS qty FROM dining_order_item oi
+                INNER JOIN dining_order o ON o.id = oi.order_id AND o.deleted = 0 AND o.pay_status = 'PAID'
+                WHERE o.stall_id = s.id AND oi.deleted = 0
+            ) x) AS salesCount
+        FROM sys_user u
+        LEFT JOIN canteen_stall s ON s.id = u.stall_id AND s.deleted = 0
+        WHERE u.deleted = 0 AND u.role = 'MERCHANT'
+        <if test="keyword != null and keyword != ''">
+            AND (u.username LIKE CONCAT('%', #{keyword}, '%')
+                 OR u.real_name LIKE CONCAT('%', #{keyword}, '%')
+                 OR u.phone LIKE CONCAT('%', #{keyword}, '%')
+                 OR s.name LIKE CONCAT('%', #{keyword}, '%')
+                 OR s.window_no LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="status != null">
+            AND u.status = #{status}
+        </if>
+        ORDER BY u.create_time DESC, u.id DESC
+    </select>
+
+</mapper>

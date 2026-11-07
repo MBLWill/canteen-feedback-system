@@ -39,7 +39,7 @@
             <el-form-item label="姓名">
               <el-input v-model="form.realName" maxlength="50" show-word-limit />
             </el-form-item>
-            <el-form-item v-if="!isMerchant" label="绑定邮箱">
+            <el-form-item label="绑定邮箱">
               <el-input v-model="form.email" maxlength="100" placeholder="用于接收食堂通知与安全验证" />
             </el-form-item>
             <el-form-item label="绑定电话">
@@ -66,9 +66,14 @@
               <div class="sec-name">绑定邮箱</div>
               <div class="sec-desc">{{ form.email ? '已绑定：' + form.email : '未绑定，绑定后可用于安全验证' }}</div>
             </div>
-            <el-tag :type="form.email ? 'success' : 'info'" size="small" effect="plain">
-              {{ form.email ? '已绑定' : '未绑定' }}
-            </el-tag>
+            <div class="sec-actions">
+              <el-tag :type="form.email ? 'success' : 'info'" size="small" effect="plain">
+                {{ form.email ? '已绑定' : '未绑定' }}
+              </el-tag>
+              <el-button type="primary" plain size="small" @click="activeMenu = 'base'">
+                {{ form.email ? '修改邮箱' : '去绑定' }}
+              </el-button>
+            </div>
           </div>
           <div class="sec-item">
             <div class="sec-info">
@@ -217,8 +222,7 @@ async function saveProfile() {
   }
   saving.value = true
   try {
-    const body = { realName: form.realName.trim(), phone: form.phone }
-    if (!isMerchant.value) body.email = form.email
+    const body = { realName: form.realName.trim(), email: form.email, phone: form.phone }
     const res = await updateProfile(body)
     fillForm(res.data)
     userStore.userInfo = res.data
@@ -407,6 +411,12 @@ onMounted(() => {
   font-size: 12px;
   color: var(--text-3);
   margin-top: 4px;
+}
+
+.sec-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .cert-title {
