@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qmz.canteen.mapper.OrderMapper">
+
+    <sql id="orderColumns">
+        o.id, o.order_no, o.user_id, o.stall_id, o.pickup_time, o.remark, o.total_amount, o.status, o.create_time,
+        o.pay_status, o.pay_no, o.pay_channel, o.paid_time, o.expire_time,
+        u.real_name AS user_name,
+        s.name AS stall_name,
+        s.window_no AS window_no
+    </sql>
+
+    <sql id="orderWhere">
+        WHERE o.deleted = 0
+        <if test="userId != null">
+            AND o.user_id = #{userId}
+        </if>
+        <if test="query.status != null and query.status != ''">
+            AND o.status = #{query.status}
+        </if>
+        <if test="query.payStatus != null and query.payStatus != ''">
+            AND o.pay_status = #{query.payStatus}
+        </if>
+        <if test="query.stallId != null">
+            AND o.stall_id = #{query.stallId}
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (o.order_no LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR s.name LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR u.real_name LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+    </sql>
+
+    <select id="selectOrderPage" resultType="com.qmz.canteen.vo.OrderVO">
+        SELECT
+        <include refid="orderColumns"/>
+        FROM dining_order o
+        LEFT JOIN sys_user u ON o.user_id = u.id AND u.deleted = 0
+        LEFT JOIN canteen_stall s ON o.stall_id = s.id AND s.deleted = 0
+        <include refid="orderWhere"/>
+        ORDER BY o.pickup_time DESC, o.id DESC
+    </select>
+
+    <select id="selectOrderById" resultType="com.qmz.canteen.vo.OrderVO">
+        SELECT
+        <include refid="orderColumns"/>
+        FROM dining_order o
+        LEFT JOIN sys_user u ON o.user_id = u.id AND u.deleted = 0
+        LEFT JOIN canteen_stall s ON o.stall_id = s.id AND s.deleted = 0
+        WHERE o.deleted = 0 AND o.id = #{id}
+    </select>
+
+    <select id="selectItemsByOrderIds" resultType="com.qmz.canteen.vo.OrderItemVO">
+        SELECT
+            i.id,
+            i.order_id AS orderId,
+            i.dish_id AS dishId,
+            i.dish_name AS dishName,
+            i.price,
+            i.quantity,
+            i.price * i.quantity AS amount
+        FROM dining_order_item i
+        WHERE i.deleted = 0
+          AND i.order_id IN
+        <foreach collection="orderIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY i.id
+    </select>
+
+    <select id="selectReviewedPairs" resultType="java.lang.String">
+        SELECT CONCAT(user_id, ':', dish_id)
+        FROM dish_review
+        WHERE deleted = 0 AND user_id IN
+        <foreach collection="userIds" item="uid" open="(" separator="," close=")">
+            #{uid}
+        </foreach>
+    </select>
+
+</mapper>

@@ -1,0 +1,62 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  config:
+    import: optional:classpath:cart-payment.yml
+  application:
+    name: canteen-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/canteen_feedback?characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+jwt:
+  secret: canteen-feedback-system-jwt-secret-key-2026-qimozuoye-must-be-long-enough
+  expiration: 86400000
+
+canteen:
+  # 评分 >= 该值视为好评
+  good-rating-threshold: 4
+  # 数据库自动迁移：启动时执行 db/migration/ 下未执行过的 V*.sql（小组协作自动同步结构变更）
+  db-migration:
+    enabled: true
+  # 智能体（大模型）配置。enabled=false 时完全走本地规则引擎，断网可用
+  agent:
+    enabled: true
+    # 智谱开放平台（OpenAI 兼容协议）
+    base-url: https://open.bigmodel.cn/api/paas/v4
+    # 建议用环境变量 CANTEEN_AGENT_KEY 覆盖，避免 key 进代码库
+    api-key: ${CANTEEN_AGENT_KEY:4bd1576d03c446649674a6522a39f106.XonNQ3oEJMV6FwUn}
+    model: glm-5.3-flash
+    # glm-5.3-flash 单轮含思考链，实测首轮 6~7s、第二轮 8~9s，超时给足
+    timeout-ms: 30000
+    max-tool-rounds: 3
+    history-limit: 8
+    temperature: 0.2
+    max-tokens: 800
+    fallback-to-rule: true
+    enable-for-admin: true

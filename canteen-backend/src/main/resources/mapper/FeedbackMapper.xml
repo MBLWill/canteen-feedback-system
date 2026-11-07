@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qmz.canteen.mapper.FeedbackMapper">
+
+    <select id="selectFeedbackPage" resultType="com.qmz.canteen.vo.FeedbackVO">
+        SELECT
+            f.id,
+            f.user_id AS userId,
+            IFNULL(u.real_name, '已注销用户') AS userName,
+            f.stall_id AS stallId,
+            s.name AS stallName,
+            f.title,
+            f.content,
+            f.type,
+            f.status,
+            f.reply_content AS replyContent,
+            ru.real_name AS replyUserName,
+            f.reply_time AS replyTime,
+            f.create_time AS createTime
+        FROM feedback f
+        LEFT JOIN sys_user u ON f.user_id = u.id AND u.deleted = 0
+        LEFT JOIN canteen_stall s ON f.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN sys_user ru ON f.reply_user_id = ru.id AND ru.deleted = 0
+        WHERE f.deleted = 0
+        <if test="scope != null and scope == 'MINE' and userId != null">
+            AND f.user_id = #{userId}
+        </if>
+        <if test="query.stallId != null">
+            AND f.stall_id = #{query.stallId}
+        </if>
+        <if test="query.type != null and query.type != ''">
+            AND f.type = #{query.type}
+        </if>
+        <if test="query.status != null and query.status != ''">
+            AND f.status = #{query.status}
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (f.title LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR f.content LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        ORDER BY f.create_time DESC
+    </select>
+
+</mapper>

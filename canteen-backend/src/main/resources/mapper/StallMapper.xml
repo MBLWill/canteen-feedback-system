@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qmz.canteen.mapper.StallMapper">
+
+    <select id="selectStallWithStats" resultType="com.qmz.canteen.vo.StallVO">
+        SELECT
+            s.id,
+            s.name,
+            s.window_no AS windowNo,
+            s.area,
+            s.floor,
+            (SELECT u.username FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantUsername,
+            s.location,
+            s.category,
+            s.manager_name AS managerName,
+            s.manager_phone AS managerPhone,
+            s.cover_image AS coverImage,
+            s.description,
+            s.hygiene_score AS hygieneScore,
+            s.status,
+            COUNT(DISTINCT d.id) AS dishCount,
+            IFNULL(ROUND(AVG(r.rating), 2), 0) AS avgRating,
+            COUNT(DISTINCT r.id) AS reviewCount,
+            IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
+                   / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS goodRate,
+            IFNULL(fav.favoriteCount, 0) AS favoriteCount
+        FROM canteen_stall s
+        LEFT JOIN dish d ON d.stall_id = s.id AND d.deleted = 0 AND d.status = 1
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        LEFT JOIN (
+            SELECT d2.stall_id AS stall_id, COUNT(*) AS favoriteCount
+            FROM dish_favorite f
+            INNER JOIN dish d2 ON f.dish_id = d2.id AND d2.deleted = 0
+            GROUP BY d2.stall_id
+        ) fav ON fav.stall_id = s.id
+        WHERE s.deleted = 0 AND s.status = 1
+        <if test="area != null and area != ''">
+            AND s.area = #{area}
+        </if>
+        <if test="floor != null">
+            AND s.floor = #{floor}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (s.name LIKE CONCAT('%', #{keyword}, '%')
+                 OR s.window_no LIKE CONCAT('%', #{keyword}, '%')
+                 OR s.category LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        GROUP BY s.id, s.name, s.window_no, s.area, s.floor, s.location, s.category, s.manager_name, s.manager_phone,
+                 s.cover_image, s.description, s.hygiene_score, s.status, fav.favoriteCount
+        ORDER BY goodRate DESC, avgRating DESC
+    </select>
+
+    <select id="selectStallById" resultType="com.qmz.canteen.vo.StallVO">
+        SELECT
+            s.id,
+            s.name,
+            s.window_no AS windowNo,
+            s.area,
+            s.floor,
+            (SELECT u.username FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantUsername,
+            s.location,
+            s.category,
+            s.manager_name AS managerName,
+            s.manager_phone AS managerPhone,
+            s.cover_image AS coverImage,
+            s.description,
+            s.hygiene_score AS hygieneScore,
+            s.status,
+            COUNT(DISTINCT d.id) AS dishCount,
+            IFNULL(ROUND(AVG(r.rating), 2), 0) AS avgRating,
+            COUNT(DISTINCT r.id) AS reviewCount,
+            IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
+                   / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS goodRate,
+            IFNULL(fav.favoriteCount, 0) AS favoriteCount
+        FROM canteen_stall s
+        LEFT JOIN dish d ON d.stall_id = s.id AND d.deleted = 0 AND d.status = 1
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        LEFT JOIN (
+            SELECT d2.stall_id AS stall_id, COUNT(*) AS favoriteCount
+            FROM dish_favorite f
+            INNER JOIN dish d2 ON f.dish_id = d2.id AND d2.deleted = 0
+            GROUP BY d2.stall_id
+        ) fav ON fav.stall_id = s.id
+        WHERE s.deleted = 0 AND s.id = #{id}
+        GROUP BY s.id, s.name, s.window_no, s.area, s.floor, s.location, s.category, s.manager_name, s.manager_phone,
+                 s.cover_image, s.description, s.hygiene_score, s.status, fav.favoriteCount
+    </select>
+
+</mapper>
