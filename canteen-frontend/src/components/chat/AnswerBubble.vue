@@ -20,6 +20,12 @@
           <div class="chat-item-sub">{{ item.subtitle }}</div>
           <div class="chat-item-meta">{{ item.meta }}</div>
         </div>
+        <button
+          v-if="item.canAddToCart && item.id"
+          class="chat-item-cart"
+          :disabled="addingId === item.id"
+          @click.stop="addCart(item)"
+        >＋购物车</button>
         <span v-if="item.link" class="chat-item-go">
           {{ item.linkLabel || '查看' }}
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -27,6 +33,16 @@
           </svg>
         </span>
       </div>
+    </div>
+
+    <div v-if="answer.actions?.length" class="action-row">
+      <button
+        v-for="action in answer.actions"
+        :key="action.label + action.path"
+        class="action-btn"
+        :class="{ 'action-primary': action.primary }"
+        @click="runAction(action)"
+      >{{ action.label }}</button>
     </div>
 
     <div v-if="answer.sources?.length" class="sources">
@@ -65,19 +81,48 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { rateChat } from '@/api/chat'
+import { addToCart } from '@/api/cart'
+import { useCartStore } from '@/store/cart'
 
 const props = defineProps({
   answer: { type: Object, required: true }
 })
 const emit = defineEmits(['ask'])
 const router = useRouter()
+const cartStore = useCartStore()
 const rated = ref(null)
+const addingId = ref(null)
 
 const lines = computed(() => String(props.answer.text || '').split('\n').filter(Boolean))
 
 function go(path) {
   router.push(path)
+}
+
+function runAction(action) {
+  if (!action?.path) return
+  // 购物车是全局面板而非独立路由，/cart 直接打开购物车抽屉
+  if (action.path === '/cart') {
+    cartStore.openDrawer()
+    return
+  }
+  router.push(action.path)
+}
+
+async function addCart(item) {
+  if (addingId.value) return
+  addingId.value = item.id
+  try {
+    await addToCart(item.id, 1)
+    window.dispatchEvent(new CustomEvent('canteen:cart-changed'))
+    ElMessage.success(`已加入购物车：${item.title}`)
+  } catch {
+    // 请求层已统一弹出错误提示，这里保持静默
+  } finally {
+    addingId.value = null
+  }
 }
 
 async function rate(helpful) {
@@ -149,6 +194,27 @@ async function rate(helpful) {
   border-color: var(--brand);
   color: #fff;
 }
+.chat-item-cart {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--brand);
+  background: #fff;
+  border: 1px solid var(--brand-line);
+  border-radius: 999px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.chat-item-cart:hover:not(:disabled) {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.chat-item-cart:disabled {
+  opacity: .6;
+  cursor: default;
+}
 .chat-item-thumb {
   flex-shrink: 0;
   width: 46px;
@@ -194,6 +260,34 @@ async function rate(helpful) {
   margin-top: 10px;
   font-size: 11px;
   color: var(--text-3);
+}
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.action-btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--brand-line);
+  background: #fff;
+  color: var(--brand);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.action-btn:hover {
+  background: var(--brand-soft);
+}
+.action-primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.action-primary:hover {
+  background: var(--brand-dark);
 }
 .quick {
   display: flex;

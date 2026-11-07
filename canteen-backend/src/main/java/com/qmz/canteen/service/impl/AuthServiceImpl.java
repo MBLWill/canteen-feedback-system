@@ -134,12 +134,11 @@ public class AuthServiceImpl implements AuthService {
         if (user == null) {
             throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "用户不存在");
         }
-        // 商家不开放邮箱绑定，即使传了也忽略
-        boolean isMerchant = UserRole.MERCHANT.name().equals(user.getRole());
+        // 商家与学生一样支持绑定邮箱，用于安全验证与通知
         if (StringUtils.hasText(request.getRealName())) {
             user.setRealName(request.getRealName().trim());
         }
-        if (!isMerchant && request.getEmail() != null) {
+        if (request.getEmail() != null) {
             String email = request.getEmail().trim();
             if (StringUtils.hasText(email)
                     && userMapper.selectCount(new LambdaQueryWrapper<User>()

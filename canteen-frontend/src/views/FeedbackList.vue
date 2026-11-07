@@ -2,11 +2,16 @@
   <div class="page-container">
     <el-card shadow="never" class="page-card" style="margin-bottom: 16px">
       <template #header>
-        <div style="display: flex; justify-content: space-between; align-items: center">
+        <div class="manage-header">
           <span style="font-weight: 600">
             {{ userStore.isAdmin ? '全部留言反馈' : '我的留言反馈' }}
           </span>
-          <el-button type="primary" @click="openCreate">＋ 我要留言</el-button>
+          <div class="batch-toolbar">
+            <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
+            <span class="selected-hint">已选 {{ selectedIds.length }} 项</span>
+            <el-button type="danger" plain :disabled="!selectedIds.length" :loading="batchDeleting" @click="handleBatchDelete">批量删除</el-button>
+            <el-button type="primary" @click="openCreate">＋ 我要留言</el-button>
+          </div>
         </div>
       </template>
 
@@ -29,39 +34,44 @@
       <el-empty v-if="!records.length && !loading" description="暂无留言" />
 
       <div v-for="item in records" :key="item.id" class="feedback-item">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start">
-          <div>
-            <span style="font-size: 15px; font-weight: 600">{{ item.title }}</span>
-            <el-tag size="small" :type="typeTag(item.type)" effect="plain" style="margin-left: 8px">
-              {{ item.typeLabel }}
-            </el-tag>
-            <el-tag size="small" :type="statusTag(item.status)" style="margin-left: 6px">
-              {{ item.statusLabel }}
-            </el-tag>
-          </div>
-          <div class="muted" style="font-size: 12px">
-            {{ item.userName }} · {{ item.stallName || '未指定档口' }} · {{ item.createTime }}
-          </div>
-        </div>
-        <div style="margin: 8px 0">{{ item.content }}</div>
-        <div v-if="item.replyContent" class="reply-box">
-          <b>管理员回复：</b>{{ item.replyContent }}
-          <div class="muted" style="font-size: 12px; margin-top: 4px">
-            {{ item.replyUserName }} · {{ item.replyTime }}
-          </div>
-        </div>
-        <div v-else class="muted" style="font-size: 12px">（等待管理员回复）</div>
+        <div class="feedback-row">
+          <el-checkbox v-model="selectedIds" :value="item.id" class="item-check" />
+          <div class="feedback-main">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start">
+              <div>
+                <span style="font-size: 15px; font-weight: 600">{{ item.title }}</span>
+                <el-tag size="small" :type="typeTag(item.type)" effect="plain" style="margin-left: 8px">
+                  {{ item.typeLabel }}
+                </el-tag>
+                <el-tag size="small" :type="statusTag(item.status)" style="margin-left: 6px">
+                  {{ item.statusLabel }}
+                </el-tag>
+              </div>
+              <div class="muted" style="font-size: 12px">
+                {{ item.userName }} · {{ item.stallName || '未指定档口' }} · {{ item.createTime }}
+              </div>
+            </div>
+            <div style="margin: 8px 0">{{ item.content }}</div>
+            <div v-if="item.replyContent" class="reply-box">
+              <b>管理员回复：</b>{{ item.replyContent }}
+              <div class="muted" style="font-size: 12px; margin-top: 4px">
+                {{ item.replyUserName }} · {{ item.replyTime }}
+              </div>
+            </div>
+            <div v-else class="muted" style="font-size: 12px">（等待管理员回复）</div>
 
-        <div style="margin-top: 8px; text-align: right">
-          <el-button
-            v-if="userStore.isAdmin && item.status !== 'RESOLVED'"
-            link
-            type="success"
-            @click="openReply(item)"
-          >
-            回复并受理
-          </el-button>
-          <el-button link type="danger" @click="handleDelete(item)">删除</el-button>
+            <div style="margin-top: 8px; text-align: right">
+              <el-button
+                v-if="userStore.isAdmin && item.status !== 'RESOLVED'"
+                link
+                type="success"
+                @click="openReply(item)"
+              >
+                回复并受理
+              </el-button>
+              <el-button link type="danger" @click="handleDelete(item)">删除</el-button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -131,7 +141,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageFeedbacks, createFeedback, replyFeedback, deleteFeedback } from '@/api/feedback'
 import { listStalls } from '@/api/stall'
@@ -143,6 +153,16 @@ const submitting = ref(false)
 const records = ref([])
 const total = ref(0)
 const stalls = ref([])
+const selectedIds = ref([])
+const batchDeleting = ref(false)
+
+const allSelected = computed({
+  get: () => records.value.length > 0 && selectedIds.value.length === records.value.length,
+  set: (val) => {
+    selectedIds.value = val ? records.value.map(item => item.id) : []
+  }
+})
+const isIndeterminate = computed(() => selectedIds.value.length > 0 && selectedIds.value.length < records.value.length)
 
 const query = reactive({ current: 1, size: 10, status: undefined, type: undefined, keyword: '' })
 
@@ -188,6 +208,7 @@ async function loadData() {
     const res = await pageFeedbacks(query)
     records.value = res.data.records
     total.value = res.data.total
+    selectedIds.value = []
   } finally {
     loading.value = false
   }
@@ -254,6 +275,27 @@ function handleDelete(item) {
     .catch(() => {})
 }
 
+async function handleBatchDelete() {
+  const ids = selectedIds.value
+  if (!ids.length) return
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${ids.length} 项吗？删除后不可恢复`, '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  batchDeleting.value = true
+  try {
+    const results = await Promise.allSettled(ids.map(id => deleteFeedback(id)))
+    const success = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.length - success
+    if (failed) ElMessage.warning(`成功删除 ${success} 项，${failed} 项删除失败`)
+    else ElMessage.success(`成功删除 ${success} 项`)
+    await loadData()
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
 onMounted(async () => {
   const res = await listStalls()
   stalls.value = res.data
@@ -262,6 +304,41 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.manage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selected-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.feedback-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.feedback-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-check {
+  flex-shrink: 0;
+}
+
 .feedback-item {
   padding: 14px 0;
   border-bottom: 1px solid #f0f1f3;

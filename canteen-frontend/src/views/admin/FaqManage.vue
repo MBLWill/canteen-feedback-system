@@ -15,9 +15,15 @@
         <el-input v-model="query.keyword" placeholder="搜索问题或答案" clearable style="width: 220px"
                   @keyup.enter="loadData" @clear="loadData" />
         <el-button type="primary" @click="loadData">查询</el-button>
+        <div class="filter-toolbar">
+          <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
+          <span class="selected-hint">已选 {{ selectedRows.length }} 项</span>
+          <el-button type="danger" plain :disabled="!selectedRows.length" :loading="batchDeleting" @click="handleBatchDelete">批量删除</el-button>
+        </div>
       </div>
 
-      <el-table :data="list" border stripe v-loading="loading">
+      <el-table ref="tableRef" :data="list" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="48" />
         <el-table-column label="分类" width="120">
           <template #default="{ row }">
             <el-tag size="small" :type="tagType(row.category)">{{ categoryLabel(row.category) }}</el-tag>
@@ -87,7 +93,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createFaq, deleteFaq, getFaqs, updateFaq } from '@/api/chat'
@@ -105,6 +111,22 @@ const query = reactive({ current: 1, size: 10, category: '', keyword: '' })
 const list = ref([])
 const total = ref(0)
 const loading = ref(false)
+const tableRef = ref()
+const selectedRows = ref([])
+const batchDeleting = ref(false)
+
+const allSelected = computed({
+  get: () => list.value.length > 0 && selectedRows.value.length === list.value.length,
+  set: (val) => {
+    tableRef.value?.clearSelection()
+    if (val) list.value.forEach(row => tableRef.value?.toggleRowSelection(row, true))
+  }
+})
+const isIndeterminate = computed(() => selectedRows.value.length > 0 && selectedRows.value.length < list.value.length)
+
+function onSelectionChange(rows) {
+  selectedRows.value = rows
+}
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref()
@@ -136,6 +158,8 @@ async function loadData() {
     const res = await getFaqs({ ...query })
     list.value = res.data.records || []
     total.value = res.data.total || 0
+    selectedRows.value = []
+    nextTick(() => tableRef.value?.clearSelection())
   } finally {
     loading.value = false
   }
@@ -182,6 +206,27 @@ async function handleDelete(row) {
   loadData()
 }
 
+async function handleBatchDelete() {
+  const rows = selectedRows.value
+  if (!rows.length) return
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${rows.length} 项吗？删除后不可恢复`, '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  batchDeleting.value = true
+  try {
+    const results = await Promise.allSettled(rows.map(row => deleteFaq(row.id)))
+    const success = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.length - success
+    if (failed) ElMessage.warning(`成功删除 ${success} 项，${failed} 项删除失败`)
+    else ElMessage.success(`成功删除 ${success} 项`)
+    await loadData()
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
 onMounted(() => {
   loadData()
   // 从问答日志页“补录为 FAQ”跳转过来时，预填未命中的提问
@@ -192,3 +237,18 @@ onMounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.filter-toolbar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selected-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+</style>

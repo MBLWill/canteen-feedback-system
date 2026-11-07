@@ -26,7 +26,7 @@
       <div class="dish-footer">
         <span class="dish-price">¥{{ dish.price }}</span>
         <div class="dish-actions">
-          <span class="dish-reviews">{{ dish.reviewCount }} 条评价</span>
+          <span class="dish-reviews">{{ dish.salesCount || 0 }} 份售出 · {{ dish.reviewCount }} 条评价</span>
           <el-button
             class="dish-add"
             type="primary"

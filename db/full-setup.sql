@@ -1,6 +1,6 @@
 -- 校园食堂菜品反馈评价系统 —— 数据库全量初始化脚本（自包含）
 -- 用法：mysql -uroot -p < db/full-setup.sql
--- 或：mysql -uroot -p1234 < db/full-setup.sql
+-- 或：mysql -uroot -p123456 < db/full-setup.sql
 --
 -- 本文件由 scripts/build-full-sql.py 自动生成，请勿手工修改。
 -- 可重复执行：会把库重置为初始状态（评价表等会先清空再灌入）。

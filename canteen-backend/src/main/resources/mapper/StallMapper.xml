@@ -25,7 +25,14 @@
             COUNT(DISTINCT r.id) AS reviewCount,
             IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
                    / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS goodRate,
-            IFNULL(fav.favoriteCount, 0) AS favoriteCount
+            IFNULL(fav.favoriteCount, 0) AS favoriteCount,
+            (SELECT IFNULL(SUM(x.qty), 0) FROM (
+                SELECT ds.quantity AS qty FROM dish_sales ds WHERE ds.stall_id = s.id
+                UNION ALL
+                SELECT oi.quantity AS qty FROM dining_order_item oi
+                INNER JOIN dining_order o ON o.id = oi.order_id AND o.deleted = 0 AND o.pay_status = 'PAID'
+                WHERE o.stall_id = s.id AND oi.deleted = 0
+            ) x) AS salesCount
         FROM canteen_stall s
         LEFT JOIN dish d ON d.stall_id = s.id AND d.deleted = 0 AND d.status = 1
         LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
@@ -49,7 +56,8 @@
         </if>
         GROUP BY s.id, s.name, s.window_no, s.area, s.floor, s.location, s.category, s.manager_name, s.manager_phone,
                  s.cover_image, s.description, s.hygiene_score, s.status, fav.favoriteCount
-        ORDER BY goodRate DESC, avgRating DESC
+        ORDER BY CASE s.area WHEN 'south' THEN 0 ELSE 1 END ASC,
+                 s.floor ASC, s.window_no ASC, s.id ASC
     </select>
 
     <select id="selectStallById" resultType="com.qmz.canteen.vo.StallVO">
@@ -75,7 +83,14 @@
             COUNT(DISTINCT r.id) AS reviewCount,
             IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
                    / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS goodRate,
-            IFNULL(fav.favoriteCount, 0) AS favoriteCount
+            IFNULL(fav.favoriteCount, 0) AS favoriteCount,
+            (SELECT IFNULL(SUM(x.qty), 0) FROM (
+                SELECT ds.quantity AS qty FROM dish_sales ds WHERE ds.stall_id = s.id
+                UNION ALL
+                SELECT oi.quantity AS qty FROM dining_order_item oi
+                INNER JOIN dining_order o ON o.id = oi.order_id AND o.deleted = 0 AND o.pay_status = 'PAID'
+                WHERE o.stall_id = s.id AND oi.deleted = 0
+            ) x) AS salesCount
         FROM canteen_stall s
         LEFT JOIN dish d ON d.stall_id = s.id AND d.deleted = 0 AND d.status = 1
         LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1

@@ -30,6 +30,9 @@ public class ChatAnswerVO {
 
     private List<String> quickReplies;
 
+    /** 答案底部操作按钮，例如「去购物车」「去结算」，可为空 */
+    private List<ChatActionVO> actions;
+
     /** 是否显示「去留言反馈」按钮 */
     private Boolean canFeedback;
 }

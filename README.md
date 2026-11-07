@@ -156,17 +156,17 @@
 
 按顺序双击项目根目录的 bat 文件：
 
-1. `init-database.bat` — 建库建表 + 导入全部初始数据（会提示输入 MySQL root 密码，默认 1234）
+1. `init-database.bat` — 建库建表 + 导入全部初始数据（会提示输入 MySQL root 密码，默认 123456）
 2. `start-backend.bat` — 启动后端，端口 8080
 3. `start-frontend.bat` — 启动前端，端口 5173（首次会自动 `npm install`）
 
-数据库密码不是 `1234` 时，改 `canteen-backend/src/main/resources/application.yml` 里的 `spring.datasource.password`。
+数据库密码不是 `123456` 时，改 `canteen-backend/src/main/resources/application.yml` 里的 `spring.datasource.password`。
 
 ### 方式二：命令行
 
 ```bash
 # 1. 初始化数据库（一条命令：建库 + 建表 + 全部初始数据）
-mysql -uroot -p1234 --default-character-set=utf8mb4 < db/full-setup.sql
+mysql -uroot -p123456 --default-character-set=utf8mb4 < db/full-setup.sql
 
 # 2. 启动后端
 cd canteen-backend && mvn spring-boot:run      # http://localhost:8080/api

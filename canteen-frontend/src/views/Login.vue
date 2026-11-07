@@ -71,14 +71,19 @@
         </el-tabs>
 
         <div class="account-tip">
-          <div class="account-tip-title">演示账号</div>
-          <div class="account-pill">
-            <span class="pill-role admin">管理员</span>
-            <b>admin</b> / <b>admin123</b>
-          </div>
-          <div class="account-pill">
-            <span class="pill-role student">学生</span>
-            <b>student01</b> / <b>123456</b>
+          <div class="account-tip-title">演示账号 · 点击自动填入</div>
+          <div class="account-list">
+            <button
+              v-for="a in demoAccounts"
+              :key="a.username"
+              class="account-pill"
+              type="button"
+              @click="fillDemoAccount(a)"
+            >
+              <span class="pill-role" :class="a.tone">{{ a.role }}</span>
+              <span class="pill-account"><b>{{ a.username }}</b> / <b>{{ a.password }}</b></span>
+              <span class="pill-fill">填入</span>
+            </button>
           </div>
         </div>
       </div>
@@ -110,6 +115,12 @@ const loading = ref(false)
 const loginFormRef = ref()
 const regFormRef = ref()
 
+const demoAccounts = [
+  { role: '管理员', tone: 'admin', username: 'admin', password: 'admin123' },
+  { role: '学生', tone: 'student', username: 'student01', password: '123456' },
+  { role: '商家', tone: 'merchant', username: '100012', password: '123456' }
+]
+
 const loginForm = reactive({ username: 'admin', password: 'admin123' })
 const regForm = reactive({ username: '', password: '', realName: '', studentNo: '', phone: '' })
 
@@ -128,6 +139,14 @@ const regRules = {
     { min: 6, max: 20, message: '密码长度为6-20位', trigger: 'blur' }
   ],
   realName: [{ required: true, message: '请输入姓名', trigger: 'blur' }]
+}
+
+function fillDemoAccount(account) {
+  activeTab.value = 'login'
+  loginForm.username = account.username
+  loginForm.password = account.password
+  loginFormRef.value?.clearValidate()
+  ElMessage.success(`已填入${account.role}账号，点击登录即可`)
 }
 
 async function handleLogin() {
@@ -263,8 +282,8 @@ async function handleRegister() {
 .account-tip {
   margin-top: 20px;
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
   font-size: 12px;
   color: var(--text-2);
@@ -275,17 +294,53 @@ async function handleRegister() {
   font-weight: 600;
 }
 
-.account-pill {
-  display: inline-flex;
-  align-items: center;
+.account-list {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  padding: 5px 12px;
-  border-radius: 20px;
+  width: 100%;
+}
+
+.account-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 10px;
   background: var(--brand-soft);
   border: 1px solid var(--brand-line);
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-2);
+  transition: all 0.16s ease;
+}
+
+.account-pill:hover {
+  border-color: var(--brand);
+  background: #fff1e4;
+  transform: translateX(2px);
+}
+
+.pill-account {
+  flex: 1;
+}
+
+.pill-fill {
+  font-size: 11px;
+  color: var(--brand-dark);
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.account-pill:hover .pill-fill {
+  opacity: 1;
 }
 
 .pill-role {
+  flex-shrink: 0;
   font-size: 11px;
   padding: 1px 8px;
   border-radius: 10px;
@@ -299,5 +354,9 @@ async function handleRegister() {
 
 .pill-role.student {
   background: #22c55e;
+}
+
+.pill-role.merchant {
+  background: #2563eb;
 }
 </style>

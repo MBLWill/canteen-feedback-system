@@ -41,6 +41,11 @@ public class AlipayGateway implements PayGateway {
     private PrivateKey privateKey;
     private PublicKey alipayPublicKey;
     private volatile boolean ready;
+    /** 平台连通性自检结果：网关返回可识别的业务响应才算健康 */
+    private volatile boolean healthy;
+    private volatile long healthyCheckedAt;
+    /** 自检结果缓存时长，避免每次下单都打一次网络请求 */
+    private static final long HEALTH_TTL_MS = 60_000L;
 
     @PostConstruct
     void init() {
@@ -55,7 +60,7 @@ public class AlipayGateway implements PayGateway {
             // 签一次证明私钥可用；公钥格式是否正确在解析时已确认
             AlipayCrypto.sign(Map.of("probe", "1"), privateKey);
             ready = true;
-            log.info("支付宝通道已启用，网关 {}，appId {}", cfg.getGateway(), cfg.getAppId());
+            log.info("支付宝密钥加载成功，网关 {}，appId {}（连通性将在结算前自检）", cfg.getGateway(), cfg.getAppId());
             probeAsync();
         } catch (Exception e) {
             ready = false;
@@ -67,14 +72,53 @@ public class AlipayGateway implements PayGateway {
     private void probeAsync() {
         CompletableFuture.runAsync(() -> {
             try {
-                String payNo = "PROBE" + System.currentTimeMillis();
-                PayTradeResult probe = query(payNo);
-                log.info("支付宝自检完成，探针查单结果：{}（UNKNOWN+invalid-signature 说明密钥或 appId 有问题）",
-                        probe.state());
+                checkHealth();
+                log.info("支付宝自检完成：healthy={}（false 时结算自动降级为 mock，不影响使用）", healthy);
             } catch (Exception e) {
                 log.warn("支付宝自检请求失败（不影响启动）：{}", e.getMessage());
             }
         });
+    }
+
+    @Override
+    public boolean ready() {
+        return ready;
+    }
+
+    @Override
+    public boolean healthy() {
+        if (!ready) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (now - healthyCheckedAt > HEALTH_TTL_MS) {
+            checkHealth();
+        }
+        return healthy;
+    }
+
+    /**
+     * 真实连通性自检：探针查单返回 WAITING(交易不存在) / SUCCESS / CLOSED 都说明
+     * 网关认了这次请求（密钥、appId 正确且平台正常）；UNKNOWN 则多为签名错误、
+     * appId 无权限、沙箱 SYSTEM_ERROR 或网络不通，此时判定通道不可用。
+     */
+    private synchronized void checkHealth() {
+        long now = System.currentTimeMillis();
+        if (now - healthyCheckedAt <= HEALTH_TTL_MS && healthyCheckedAt > 0) {
+            return;
+        }
+        try {
+            PayTradeState state = query("PROBE" + now).state();
+            healthy = state != PayTradeState.UNKNOWN;
+            healthyCheckedAt = now;
+            if (!healthy) {
+                log.warn("支付宝网关自检未通过（查单结果 {}），结算将自动降级为 mock 通道", state);
+            }
+        } catch (Exception e) {
+            healthy = false;
+            healthyCheckedAt = now;
+            log.warn("支付宝网关自检异常，结算将自动降级为 mock 通道：{}", e.getMessage());
+        }
     }
 
     private CommerceProperties.Alipay alipay() {
@@ -84,11 +128,6 @@ public class AlipayGateway implements PayGateway {
     @Override
     public String channel() {
         return "alipay";
-    }
-
-    @Override
-    public boolean ready() {
-        return ready;
     }
 
     @Override

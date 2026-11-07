@@ -12,7 +12,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/canteen_feedback?characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
-    password: 1234
+    password: 123456
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
@@ -50,11 +50,12 @@ canteen:
     # 智谱开放平台（OpenAI 兼容协议）
     base-url: https://open.bigmodel.cn/api/paas/v4
     # 建议用环境变量 CANTEEN_AGENT_KEY 覆盖，避免 key 进代码库
-    api-key: ${CANTEEN_AGENT_KEY:}
+    api-key: ${CANTEEN_AGENT_KEY:4bd1576d03c446649674a6522a39f106.XonNQ3oEJMV6FwUn}
     model: glm-5.3-flash
     # glm-5.3-flash 单轮含思考链，实测首轮 6~7s、第二轮 8~9s，超时给足
     timeout-ms: 30000
-    max-tool-rounds: 3
+    # 一次提问里可能要分别加购多道菜，轮数太少会来不及调用 add_to_cart
+    max-tool-rounds: 4
     history-limit: 8
     temperature: 0.2
     max-tokens: 800

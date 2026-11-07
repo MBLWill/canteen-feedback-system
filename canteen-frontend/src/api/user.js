@@ -4,6 +4,10 @@ export function pageUsers(params) {
   return request.get('/users', { params })
 }
 
+export function pageMerchants(params) {
+  return request.get('/users/merchants', { params })
+}
+
 export function updateUserStatus(id, status) {
   return request.put(`/users/${id}/status`, null, { params: { status } })
 }

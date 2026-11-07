@@ -29,6 +29,8 @@ public class UserServiceImpl implements UserService {
         long size = query.getSize() == null || query.getSize() < 1 ? 10 : Math.min(query.getSize(), 100);
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        // 商家账号统一在「商家管理」中维护，这里不再重复展示
+        wrapper.ne(User::getRole, UserRole.MERCHANT.name());
         wrapper.and(StringUtils.hasText(query.getKeyword()), w -> w
                         .like(User::getUsername, query.getKeyword())
                         .or().like(User::getRealName, query.getKeyword())
@@ -39,6 +41,19 @@ public class UserServiceImpl implements UserService {
 
         IPage<User> page = userMapper.selectPage(new Page<>(current, size), wrapper);
         return PageResult.of(page, this::toVO);
+    }
+
+    @Override
+    public PageResult<UserInfoVO> pageMerchants(UserQuery query) {
+        long current = query.getCurrent() == null || query.getCurrent() < 1 ? 1 : query.getCurrent();
+        long size = query.getSize() == null || query.getSize() < 1 ? 10 : Math.min(query.getSize(), 100);
+
+        IPage<UserInfoVO> page = userMapper.selectMerchantPage(
+                new Page<>(current, size),
+                StringUtils.hasText(query.getKeyword()) ? query.getKeyword().trim() : null,
+                query.getStatus());
+        page.getRecords().forEach(vo -> vo.setRoleLabel(UserRole.MERCHANT.getLabel()));
+        return PageResult.of(page);
     }
 
     @Override

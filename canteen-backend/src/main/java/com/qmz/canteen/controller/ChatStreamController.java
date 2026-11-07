@@ -96,11 +96,14 @@ public class ChatStreamController {
                         .data(Map.of("answer", answer), MediaType.APPLICATION_JSON));
                 emitter.complete();
             } catch (Exception e) {
-                log.warn("SSE 提问失败：{}", e.getMessage());
+                log.warn("SSE 提问失败：{}", e.getMessage(), e);
+                // 不把原始异常文本（如 HTTP 429、超时堆栈）推给前端，统一给可读提示
+                String message = e instanceof BusinessException && e.getMessage() != null
+                        ? e.getMessage() : "助手暂时繁忙，请稍后再试";
                 try {
                     emitter.send(SseEmitter.event()
                             .name("error")
-                            .data(Map.of("message", String.valueOf(e.getMessage())),
+                            .data(Map.of("message", message),
                                     MediaType.APPLICATION_JSON));
                 } catch (Exception ignored) {
                     // 客户端已断开，忽略
@@ -120,8 +123,9 @@ public class ChatStreamController {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleException(Exception e) {
-        log.warn("SSE 请求异常：{}", e.getMessage());
-        String message = e.getMessage() == null ? "请求失败" : e.getMessage();
+        log.warn("SSE 请求异常：{}", e.getMessage(), e);
+        String message = e instanceof BusinessException && e.getMessage() != null
+                ? e.getMessage() : "请求失败，请稍后再试";
         return ResponseEntity.status(500)
                 .contentType(MediaType.TEXT_PLAIN)
                 .body(message);

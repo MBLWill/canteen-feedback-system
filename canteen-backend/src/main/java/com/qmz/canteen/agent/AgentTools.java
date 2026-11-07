@@ -1,11 +1,17 @@
 package com.qmz.canteen.agent;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.qmz.canteen.common.BusinessException;
+import com.qmz.canteen.dto.CartAddRequest;
 import com.qmz.canteen.entity.Dish;
 import com.qmz.canteen.entity.Notice;
 import com.qmz.canteen.mapper.DishMapper;
 import com.qmz.canteen.mapper.NoticeMapper;
 import com.qmz.canteen.mapper.StatsMapper;
+import com.qmz.canteen.security.LoginUser;
+import com.qmz.canteen.security.UserContext;
+import com.qmz.canteen.security.UserRole;
+import com.qmz.canteen.service.CartService;
 import com.qmz.canteen.service.FaqService;
 import com.qmz.canteen.service.StallService;
 import com.qmz.canteen.service.StatsService;
@@ -49,6 +55,7 @@ public class AgentTools {
     private final FaqService faqService;
     private final DishMapper dishMapper;
     private final NoticeMapper noticeMapper;
+    private final CartService cartService;
 
     @Value("${canteen.good-rating-threshold}")
     private Integer goodThreshold;
@@ -115,7 +122,22 @@ public class AgentTools {
                 tool("get_overview",
                         "获取食堂整体统计：营业档口数、在售菜品数、累计评价数、今日评价数、平均评分、"
                                 + "整体好评率、留言数、待处理留言数。只用于问食堂整体情况。",
-                        Map.of(), List.of())
+                        Map.of(), List.of()),
+
+                tool("add_to_cart",
+                        "把一道菜真实加入当前学生的购物车（写数据库）。"
+                                + "用户说「加入购物车 / 帮我买 / 来一份 / 加购 / 帮我点」时必须调用本工具，"
+                                + "不能只列菜或口头答应；用户要几样就分别调用几次，每次只处理一道菜。"
+                                + "只加购，绝不代用户支付。dishId 优先，拿不到 id 时用 dishName。",
+                        Map.of(
+                                "dishId", Map.of("type", "integer",
+                                        "description", "菜品ID，优先用 search_dishes 返回的 dishId"),
+                                "dishName", Map.of("type", "string",
+                                        "description", "菜品名称，例如 宫保鸡丁；不知道 id 时使用"),
+                                "quantity", Map.of("type", "integer",
+                                        "description", "份数，1-9，默认 1")
+                        ),
+                        List.of())
         );
     }
 
@@ -138,6 +160,8 @@ public class AgentTools {
             case "search_faq" -> searchFaq(str(safeArgs.get("keyword")));
             case "list_notices" -> listNotices(intArg(safeArgs.get("limit"), 3));
             case "get_overview" -> overview();
+            case "add_to_cart" -> addToCart(str(safeArgs.get("dishId")), str(safeArgs.get("dishName")),
+                    intArg(safeArgs.get("quantity"), 1));
             default -> Map.of("error", "未知工具：" + name);
         };
     }
@@ -370,6 +394,7 @@ public class AgentTools {
             }
             DishBriefVO b = byId.get(d.getId());
             Map<String, Object> item = new LinkedHashMap<>();
+            item.put("dishId", d.getId());
             item.put("dishName", d.getName());
             item.put("price", money(d.getPrice()));
             item.put("featured", featured);
@@ -566,6 +591,92 @@ public class AgentTools {
         item.put("待处理留言", vo.getPendingFeedbackCount());
         item.put("学生人数", vo.getStudentCount());
         return item;
+    }
+
+    // ---------------- 真实操作类工具 ----------------
+
+    /**
+     * 把菜品加入购物车。仅学生可用，非学生直接返回可读错误，不抛异常。
+     */
+    private Object addToCart(String dishIdRaw, String dishNameRaw, int quantity) {
+        LoginUser user = UserContext.get();
+        if (user == null || user.getUserId() == null) {
+            return Map.of("success", false, "error", "请先登录后再使用购物车");
+        }
+        if (!UserRole.STUDENT.name().equals(user.getRole())) {
+            return Map.of("success", false, "error", "只有学生账号可以使用购物车");
+        }
+
+        Dish dish = resolveDish(dishIdRaw, dishNameRaw);
+        if (dish == null) {
+            String target = StringUtils.hasText(dishNameRaw) ? dishNameRaw.trim()
+                    : StringUtils.hasText(dishIdRaw) ? dishIdRaw.trim() : "";
+            String message = target.isEmpty()
+                    ? "请提供菜品名称或菜品ID"
+                    : "没有找到「" + target + "」这道菜，请确认菜名或先用 search_dishes 查询";
+            return Map.of("success", false, "error", message);
+        }
+
+        int qty = clamp(quantity, 1, 9);
+        try {
+            CartAddRequest request = new CartAddRequest();
+            request.setDishId(dish.getId());
+            request.setQuantity(qty);
+            cartService.add(request, user.getUserId());
+        } catch (BusinessException e) {
+            return Map.of("success", false, "error", e.getMessage());
+        } catch (Exception e) {
+            log.warn("加入购物车失败 dishId={}：{}", dish.getId(), e.getMessage());
+            return Map.of("success", false, "error", "加入购物车失败，请稍后再试");
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("dishId", dish.getId());
+        result.put("dishName", dish.getName());
+        result.put("price", money(dish.getPrice()));
+        result.put("quantity", qty);
+        result.put("hint", "已真实加入购物车。请告诉用户已加入，并提醒到购物车/结算页自行支付，不要代用户支付。");
+        return result;
+    }
+
+    /** 菜名精确匹配优先，模糊匹配兜底；有 dishId 时直接按 id 查 */
+    private Dish resolveDish(String dishIdRaw, String dishNameRaw) {
+        Long dishId = parseId(dishIdRaw);
+        if (dishId != null) {
+            Dish dish = dishMapper.selectById(dishId);
+            if (dish != null && Integer.valueOf(1).equals(dish.getStatus())) {
+                return dish;
+            }
+        }
+        String name = dishNameRaw == null ? "" : dishNameRaw.trim();
+        if (name.isEmpty()) {
+            return null;
+        }
+        List<Dish> exact = dishMapper.selectList(new LambdaQueryWrapper<Dish>()
+                .eq(Dish::getStatus, 1)
+                .eq(Dish::getName, name));
+        if (!exact.isEmpty()) {
+            return exact.get(0);
+        }
+        List<Dish> fuzzy = dishMapper.selectList(new LambdaQueryWrapper<Dish>()
+                .eq(Dish::getStatus, 1)
+                .like(Dish::getName, name)
+                .orderByDesc(Dish::getFeatured)
+                .orderByAsc(Dish::getId)
+                .last("LIMIT 1"));
+        return fuzzy.isEmpty() ? null : fuzzy.get(0);
+    }
+
+    private static Long parseId(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        try {
+            return (long) Double.parseDouble(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ---------------- 小工具 ----------------

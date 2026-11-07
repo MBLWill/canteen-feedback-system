@@ -15,11 +15,14 @@ import com.qmz.canteen.entity.User;
 import com.qmz.canteen.mapper.ChatLogMapper;
 import com.qmz.canteen.mapper.StatsMapper;
 import com.qmz.canteen.mapper.UserMapper;
+import com.qmz.canteen.security.LoginUser;
 import com.qmz.canteen.security.UserContext;
+import com.qmz.canteen.security.UserRole;
 import com.qmz.canteen.service.ChatService;
 import com.qmz.canteen.service.FaqService;
 import com.qmz.canteen.service.StallService;
 import com.qmz.canteen.service.StatsService;
+import com.qmz.canteen.vo.ChatActionVO;
 import com.qmz.canteen.vo.ChatAnswerVO;
 import com.qmz.canteen.vo.ChatItemVO;
 import com.qmz.canteen.vo.ChatLogVO;
@@ -59,6 +62,8 @@ public class ChatServiceImpl implements ChatService {
 
     private static final long INDEX_TTL = 5 * 60 * 1000L;
     private static final int RATE_LIMIT = 30;
+    private static final String AGENT_BUSY_TEXT =
+            "助手暂时繁忙，请稍后再试。你也可以换个问法，或直接到菜品、档口页面查看。";
     private static final Pattern WINDOW_NO = Pattern.compile("(\\d{1,2})\\s*(号|窗口)");
 
     private static final List<IntentDef> INTENTS = List.of(
@@ -172,12 +177,12 @@ public class ChatServiceImpl implements ChatService {
         }
         try {
             AgentOrchestrator.AgentResult result = orchestrator.chatStream(question, history, onDelta);
-            return toAnswer(result);
+            return toAnswer(result, question);
         } catch (LlmClient.LlmException e) {
             log.warn("智能体流式调用失败，降级到规则引擎：{}", e.getMessage());
             if (!agentProperties.isFallbackToRule()) {
                 ChatAnswerVO answer = base("agent_error", "智能助手繁忙", "text", false);
-                answer.setText("智能助手暂时不可用（" + e.getMessage() + "），请稍后再试，或直接换个问法。");
+                answer.setText(AGENT_BUSY_TEXT);
                 answer.setCanFeedback(true);
                 return answer;
             }
@@ -189,14 +194,45 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /** 把编排结果转成前端契约的 ChatAnswerVO */
-    private ChatAnswerVO toAnswer(AgentOrchestrator.AgentResult result) {
+    private ChatAnswerVO toAnswer(AgentOrchestrator.AgentResult result, String question) {
         ChatAnswerVO answer = base("agent", "智能问答", "text", true);
         answer.setText(result.text());
-        answer.setItems(cardBuilder.build(result.toolResults()));
+        answer.setItems(cardBuilder.build(question, result.toolResults()));
+        answer.setActions(buildCartActions(result));
         answer.setSources(List.of("智能助手 · 实时查询食堂数据库"));
-        answer.setQuickReplies(List.of("今天有什么推荐", "哪个窗口最好", "怎么投诉某个窗口"));
+        answer.setQuickReplies(UserContext.isMerchant()
+                ? List.of("菜品在哪里添加", "学生下单后怎么处理", "怎么查看销售数据", "怎么绑定邮箱")
+                : List.of("今天有什么推荐", "哪个窗口最好", "怎么投诉某个窗口"));
         answer.setCanFeedback(false);
         return answer;
+    }
+
+    /**
+     * 本轮有成功的加购操作时，给答案底部补「去购物车」「去结算」按钮。
+     * 仅学生账号生成；支付仍由用户自己在购物车/结算页完成。
+     */
+    private List<ChatActionVO> buildCartActions(AgentOrchestrator.AgentResult result) {
+        LoginUser user = UserContext.get();
+        if (user == null || !UserRole.STUDENT.name().equals(user.getRole())) {
+            return List.of();
+        }
+        Object cartResult = result.toolResults() == null ? null : result.toolResults().get("add_to_cart");
+        if (!(cartResult instanceof Map<?, ?> map) || !Boolean.TRUE.equals(map.get("success"))) {
+            return List.of();
+        }
+        ChatActionVO goCart = new ChatActionVO();
+        goCart.setType("link");
+        goCart.setLabel("去购物车");
+        goCart.setPath("/cart");
+        goCart.setPrimary(true);
+
+        ChatActionVO checkout = new ChatActionVO();
+        checkout.setType("link");
+        checkout.setLabel("去结算");
+        checkout.setPath("/cart");
+        checkout.setPrimary(false);
+
+        return List.of(goCart, checkout);
     }
 
     /**
@@ -211,12 +247,12 @@ public class ChatServiceImpl implements ChatService {
         }
         try {
             AgentOrchestrator.AgentResult result = orchestrator.chat(question, history);
-            return toAnswer(result);
+            return toAnswer(result, question);
         } catch (LlmClient.LlmException e) {
             log.warn("智能体调用失败，降级到规则引擎：{}", e.getMessage());
             if (!agentProperties.isFallbackToRule()) {
                 ChatAnswerVO answer = base("agent_error", "智能助手繁忙", "text", false);
-                answer.setText("智能助手暂时不可用（" + e.getMessage() + "），请稍后再试，或直接换个问法。");
+                answer.setText(AGENT_BUSY_TEXT);
                 answer.setCanFeedback(true);
                 return answer;
             }
@@ -234,6 +270,17 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public List<String> suggestions() {
+        // 商家端只关心经营操作，不展示学生向问题
+        if (UserContext.isMerchant()) {
+            return List.of(
+                    "菜品在哪里添加",
+                    "怎么修改菜品价格",
+                    "学生下单后怎么处理",
+                    "怎么查看销售数据",
+                    "怎么绑定邮箱",
+                    "怎么给管理员留言"
+            );
+        }
         List<String> list = new ArrayList<>(List.of(
                 "今天有什么推荐",
                 "哪些菜要避雷",
@@ -343,6 +390,13 @@ public class ChatServiceImpl implements ChatService {
         if (norm.isEmpty()) {
             return fallback("问题不能为空哦，换个说法试试？");
         }
+        // 商家账号优先回答经营操作类问题
+        if (UserContext.isMerchant()) {
+            ChatAnswerVO merchant = answerMerchant(norm);
+            if (merchant != null) {
+                return merchant;
+            }
+        }
         List<Candidate> dishes = matchDishes(norm);
         if (!dishes.isEmpty() && dishes.get(0).score >= 5.5) {
             List<Candidate> strong = dishes.stream().filter(c -> c.score >= 5.5).toList();
@@ -361,6 +415,77 @@ public class ChatServiceImpl implements ChatService {
             return answerByIntent(intent.code, norm);
         }
         return fallback("这个问题我还没学会，换个问法试试？");
+    }
+
+    /**
+     * 商家经营问题兜底：Agent 未启用或降级时，按关键词直接给菜单入口。
+     * 返回 null 表示不属于经营操作类问题，继续走通用路由。
+     */
+    private ChatAnswerVO answerMerchant(String norm) {
+        if (containsAny(norm, "菜品", "菜单", "美食") && containsAny(norm, "添加", "新增", "新建", "上传",
+                "管理", "修改", "编辑", "删除", "下架", "上架", "价格", "图片", "录入", "加菜")) {
+            return merchantAnswer("merchant_dish", "菜品管理",
+                    "在左侧菜单打开「菜品管理」，点右上角「＋ 新增菜品」，填写菜名、价格、分类、图片和简介后保存即可。"
+                            + "列表里每道菜还能编辑、上架/下架或删除，勾选多条可以批量删除。",
+                    List.of("怎么修改菜品价格", "学生下单后怎么处理", "怎么查看销售数据"));
+        }
+        if (containsAny(norm, "订单", "接单", "出餐", "取餐", "备餐")) {
+            return merchantAnswer("merchant_order", "订单处理",
+                    "在左侧「订单处理」查看学生订单，按取餐时间备餐；做好后点确认出餐，学生到店报订单号取餐。"
+                            + "超时未取的订单可以联系学生或按规则取消。",
+                    List.of("怎么查看销售数据", "怎么给管理员留言"));
+        }
+        if (containsAny(norm, "销售", "营业额", "收入", "数据", "卖得", "销量", "热销")) {
+            return merchantAnswer("merchant_sales", "销售情况",
+                    "左侧「销售情况」可以看到营业额、订单量和热销菜品，按日查看趋势，方便调整备菜量。",
+                    List.of("学生下单后怎么处理", "菜品在哪里添加"));
+        }
+        if (containsAny(norm, "邮箱", "电话", "密码", "证照", "健康证", "营业执照", "头像", "资料")) {
+            return merchantAnswer("merchant_profile", "账号与资料",
+                    "点击右上角头像 →「个人中心」：在「基本资料」绑定或修改邮箱和电话，"
+                            + "在「账号安全」修改密码，在「我的证照」上传健康证和营业执照。",
+                    List.of("怎么绑定邮箱", "怎么给管理员留言"));
+        }
+        if (containsAny(norm, "评价", "评分", "差评", "打分")) {
+            return merchantAnswer("merchant_review", "学生评价",
+                    "左侧「学生评价」可以查看学生对你档口菜品的评分和评价，评分偏低时建议调整口味、分量或价格。",
+                    List.of("怎么查看销售数据", "菜品在哪里添加"));
+        }
+        if (containsAny(norm, "留言", "管理员", "联系", "反馈", "投诉")) {
+            return merchantAnswer("merchant_message", "给管理员留言",
+                    "左侧「给管理员留言」可以提交经营问题、证照变更或档口信息修改，管理员会在后台回复。",
+                    List.of("怎么绑定邮箱", "学生下单后怎么处理"));
+        }
+        if (containsAny(norm, "你好", "您好", "hi", "hello", "在吗", "嗨")) {
+            return merchantAnswer("merchant_greeting", "打招呼",
+                    "你好！我是商家经营助手。可以问我菜品怎么添加、订单怎么处理、销售数据在哪看、邮箱怎么绑定这些经营问题。",
+                    List.of("菜品在哪里添加", "学生下单后怎么处理", "怎么查看销售数据"));
+        }
+        if (containsAny(norm, "你能", "会什么", "能做什么", "帮助", "怎么用", "功能", "可以做什么")) {
+            return merchantAnswer("merchant_help", "商家功能说明",
+                    "商家常用功能：\n1. 菜品管理：新增、编辑、上下架、删除菜品\n2. 订单处理：接单与确认出餐\n"
+                            + "3. 销售情况：营业额、订单量和热销菜\n4. 学生评价：查看学生反馈\n"
+                            + "5. 给管理员留言 / 个人中心绑定邮箱与证照",
+                    List.of("菜品在哪里添加", "怎么查看销售数据", "怎么给管理员留言"));
+        }
+        return null;
+    }
+
+    private ChatAnswerVO merchantAnswer(String intent, String label, String text, List<String> quickReplies) {
+        ChatAnswerVO answer = base(intent, label, "text", true);
+        answer.setText(text);
+        answer.setSources(List.of("商家经营指南"));
+        answer.setQuickReplies(quickReplies);
+        return answer;
+    }
+
+    private static boolean containsAny(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ChatAnswerVO answerDish(DishBriefVO dish) {
@@ -689,6 +814,7 @@ public class ChatServiceImpl implements ChatService {
         answer.setCanFeedback(false);
         answer.setItems(List.of());
         answer.setQuickReplies(List.of());
+        answer.setActions(List.of());
         return answer;
     }
 

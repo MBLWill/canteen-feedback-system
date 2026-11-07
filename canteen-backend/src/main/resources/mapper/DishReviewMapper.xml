@@ -54,4 +54,38 @@
         ORDER BY r.create_time DESC
     </select>
 
+    <select id="selectMerchantReviewPage" resultType="com.qmz.canteen.vo.ReviewVO">
+        SELECT
+            r.id,
+            r.dish_id AS dishId,
+            d.name AS dishName,
+            d.image AS dishImage,
+            d.stall_id AS stallId,
+            s.name AS stallName,
+            r.user_id AS userId,
+            CASE WHEN r.anonymous = 1 THEN '匿名学生' ELSE IFNULL(u.real_name, '已注销学生') END AS userName,
+            CASE WHEN r.anonymous = 1 THEN '' ELSE IFNULL(u.avatar, '') END AS avatar,
+            r.rating,
+            r.content,
+            r.anonymous,
+            r.status,
+            r.merchant_reply AS merchantReply,
+            r.merchant_reply_time AS merchantReplyTime,
+            r.handled,
+            r.create_time AS createTime
+        FROM dish_review r
+        INNER JOIN dish d ON r.dish_id = d.id AND d.deleted = 0
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN sys_user u ON r.user_id = u.id AND u.deleted = 0
+        WHERE r.deleted = 0
+          AND d.stall_id = #{stallId}
+        <if test="query.rating != null">
+            AND r.rating = #{query.rating}
+        </if>
+        <if test="query.handled != null">
+            AND r.handled = #{query.handled}
+        </if>
+        ORDER BY r.create_time DESC
+    </select>
+
 </mapper>

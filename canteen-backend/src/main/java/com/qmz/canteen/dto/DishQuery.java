@@ -19,11 +19,15 @@ public class DishQuery {
 
     private String keyword;
     private Long stallId;
+    /** south-南区 north-北区，为空表示全部 */
+    private String area;
+    /** 楼层：1 或 2，为空表示全部 */
+    private Integer floor;
     private String category;
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
     private Integer minRating;
 
-    /** rating-评分优先 reviews-评价数 priceAsc-价格升 priceDesc-价格降 */
+    /** rating-好评优先 sales-销量优先 comprehensive-综合（按档口窗口号） reviews-评价数 priceAsc/priceDesc/newest */
     private String sortBy;
 }

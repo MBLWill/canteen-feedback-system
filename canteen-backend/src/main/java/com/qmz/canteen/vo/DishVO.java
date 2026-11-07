@@ -22,6 +22,8 @@ public class DishVO {
     private Double avgRating;
     private Long reviewCount;
     private Double goodRate;
+    /** 累计销量（销售记录 + 已支付订单） */
+    private Long salesCount;
     private Boolean favorited;
     private LocalDateTime createTime;
 }

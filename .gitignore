@@ -7,11 +7,4 @@ target/
 .vscode/
 *.iml
 .DS_Store
-
-# 运行时上传文件（不纳入版本管理）
-canteen-backend/uploads/
-
-# 本地环境变量与密钥文件
-.env
-.env.*
-!.env.example
+.codegraph/

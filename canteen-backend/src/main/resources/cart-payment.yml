@@ -45,14 +45,17 @@ canteen:
     deduct-stock-on-paid: true
 
   pay:
-    # 【必填】支付通道：mock / wechat / alipay；课程演示建议填 mock
-    channel: ${CANTEEN_PAY_CHANNEL:alipay}
+    # 【必填】支付通道：mock / wechat / alipay
+    # 默认用 mock：内置模拟支付，不依赖外部网关，本地/答辩开箱即用、不会报「系统有点儿忙」。
+    # 想接真实支付宝沙箱，把这里改成 alipay 并配好下面的密钥与 CANTEEN_PAY_NOTIFY_BASE_URL。
+    channel: ${CANTEEN_PAY_CHANNEL:mock}
     # 是否使用沙箱环境
     sandbox: true
     # 【必填】支付平台异步回调可达的后端公网地址，本机联调填 http://127.0.0.1:8080；上线填域名或内网穿透地址
     notify-base-url: ${CANTEEN_PAY_NOTIFY_BASE_URL:}
     # 后端接收异步通知的路径，会自动拼上 context-path /api
-    notify-path: /pay/notify
+    # 必须与 PayController 的 @PostMapping("/notify/alipay") 一致，否则回调 404
+    notify-path: /pay/notify/alipay
     # 【必填】支付完成后前端跳回的页面地址
     return-url: ${CANTEEN_PAY_RETURN_URL:http://localhost:5173/my/orders}
     # 前端轮询支付结果的间隔秒数与最大次数

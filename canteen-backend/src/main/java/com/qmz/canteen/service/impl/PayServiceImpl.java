@@ -49,6 +49,15 @@ public class PayServiceImpl implements PayService {
         if (ORDER_PAID.equals(order.getPayStatus())) {
             throw new BusinessException("该订单已支付");
         }
+        if (ORDER_CLOSED.equals(order.getPayStatus())) {
+            throw new BusinessException("该订单支付已关闭，请重新下单");
+        }
+        if ("CANCELED".equals(order.getStatus())) {
+            throw new BusinessException("该订单已取消，无法支付");
+        }
+        if (order.getExpireTime() != null && order.getExpireTime().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("订单已超过支付时限，请重新下单");
+        }
 
         PayRecord record = latestOpenRecord(orderId);
         if (record == null) {
@@ -89,6 +98,9 @@ public class PayServiceImpl implements PayService {
         }
         if (PayRecord.STATUS_PAID.equals(record.getStatus())) {
             return;
+        }
+        if (PayRecord.STATUS_CLOSED.equals(record.getStatus())) {
+            throw new BusinessException("该支付单已关闭，请重新下单");
         }
         markPaid(record, "MOCK" + System.currentTimeMillis(), null);
     }
@@ -143,6 +155,8 @@ public class PayServiceImpl implements PayService {
         LocalDateTime now = LocalDateTime.now();
         List<DiningOrder> expired = orderMapper.selectList(new LambdaQueryWrapper<DiningOrder>()
                 .eq(DiningOrder::getPayStatus, ORDER_UNPAID)
+                .ne(DiningOrder::getStatus, "CANCELED")
+                .ne(DiningOrder::getStatus, "DONE")
                 .isNotNull(DiningOrder::getExpireTime)
                 .lt(DiningOrder::getExpireTime, now));
         if (expired.isEmpty()) {
@@ -162,6 +176,7 @@ public class PayServiceImpl implements PayService {
             DiningOrder update = new DiningOrder();
             update.setId(order.getId());
             update.setPayStatus(ORDER_CLOSED);
+            update.setStatus("CANCELED");
             orderMapper.updateById(update);
         }
         log.info("超时未支付关单 {} 笔", expired.size());
@@ -270,21 +285,32 @@ public class PayServiceImpl implements PayService {
         DiningOrder update = new DiningOrder();
         update.setId(record.getOrderId());
         update.setPayStatus(ORDER_CLOSED);
+        // 支付关闭的同时把订单本身也取消，释放取餐名额，避免用户看到「已关闭」却仍可「去支付」
+        update.setStatus("CANCELED");
         orderMapper.updateById(update);
     }
 
-    /** 配置的通道不可用（密钥缺失/格式错）时按可用通道降级，保证本地开发能跑通 */
+    /**
+     * 配置的通道不可用时按可用通道降级，保证本地开发能跑通。
+     * 外部通道（alipay/wechat）除了本地密钥，还要通过网关连通性自检 healthy()：
+     * 沙箱 SYSTEM_ERROR、密钥失效、断网等情况都会自动降级成 mock，避免结算时
+     * 跳到「系统有点儿忙」的报错页，也避免生成一个永远收不到回调的支付单。
+     */
     private String resolveChannel() {
         String configured = trimToNull(props.getPay().getChannel());
         if (configured != null) {
             PayGateway gw = gateway(configured);
-            if (gw != null && gw.ready()) {
+            if (gw != null && gw.healthy()) {
                 return gw.channel();
             }
-            log.warn("配置的支付通道 {} 不可用，本次降级为 mock", configured);
+            if (gw != null) {
+                log.warn("配置的支付通道 {} 未通过可用性自检，本次降级为 mock", configured);
+            } else {
+                log.warn("配置的支付通道 {} 不存在，本次降级为 mock", configured);
+            }
         }
         PayGateway alipay = gateway("alipay");
-        if (alipay != null && alipay.ready()) {
+        if (alipay != null && alipay.healthy() && (configured == null || !"alipay".equalsIgnoreCase(configured))) {
             return "alipay";
         }
         return "mock";

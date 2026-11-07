@@ -189,6 +189,10 @@ public class DishServiceImpl implements DishService {
         }
         return switch (sortBy) {
             case "reviews" -> "review_count DESC, avg_rating DESC";
+            // 销量优先：销售记录 + 已支付订单的累计份数
+            case "sales" -> "sales_count DESC, avg_rating DESC, review_count DESC";
+            // 综合：按档口窗口号，南区 S101→S102→S201→S202，再到北区 N101→N102
+            case "comprehensive" -> "CASE s.area WHEN 'south' THEN 0 ELSE 1 END ASC, s.window_no ASC, d.id ASC";
             case "priceAsc" -> "d.price ASC";
             case "priceDesc" -> "d.price DESC";
             case "newest" -> "d.create_time DESC";

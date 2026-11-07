@@ -33,6 +33,12 @@ public class UserController {
         return Result.success(userService.pageUsers(query));
     }
 
+    @GetMapping("/merchants")
+    public Result<PageResult<UserInfoVO>> pageMerchants(@Valid UserQuery query) {
+        UserContext.requireAdmin();
+        return Result.success(userService.pageMerchants(query));
+    }
+
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@PathVariable @Positive(message = "用户ID不合法") Long id,
                                      @RequestParam @Min(value = 0, message = "状态取值不合法")

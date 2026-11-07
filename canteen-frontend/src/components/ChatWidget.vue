@@ -1,16 +1,46 @@
 <template>
   <div class="chat-widget">
     <transition name="chat-pop">
-      <div v-if="open" class="chat-panel" :style="panelStyle">
-        <div class="chat-head">
+      <div
+        v-if="open"
+        class="chat-panel"
+        :class="{ 'panel-docked': docked, 'panel-dragging': isDragging }"
+        :style="panelStyle"
+      >
+        <div class="chat-head" @pointerdown="onHeadDown">
           <div class="head-avatar">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" fill="#fff" stroke="none"/>
             </svg>
           </div>
           <div class="head-text">
-            <div class="head-title">食堂小助手</div>
+            <div class="head-title">{{ assistantTitle }}</div>
             <div class="head-sub">{{ engineLabel }}</div>
+          </div>
+          <div class="head-actions">
+            <button class="head-btn" title="新建会话" @click.stop="newSession">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                <path d="M12 8v6M9 11h6"/>
+              </svg>
+            </button>
+            <button
+              class="head-btn"
+              :class="{ 'head-btn-on': docked }"
+              :title="docked ? '取消固定侧栏' : '固定到右侧'"
+              @click.stop="toggleDock"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="4"/>
+                <path d="M15 4v16"/>
+                <path d="M15 4h2a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-2z" fill="currentColor" stroke="none" opacity=".18"/>
+              </svg>
+            </button>
+            <button class="head-btn head-close" title="关闭" @click.stop="closePanel">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M6 6l12 12M18 6L6 18"/>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -21,10 +51,32 @@
                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
               </svg>
             </div>
-            <p class="welcome-title">你好，想问点什么？</p>
-            <p class="welcome-sub">可以直接输入菜名，比如「宫保鸡丁」</p>
-            <div class="welcome-chips">
-              <span v-for="s in suggestions" :key="s" class="quick-chip" @click="send(s)">{{ s }}</span>
+            <p class="welcome-title">{{ welcomeTitle }}</p>
+            <p class="welcome-sub">{{ welcomeSub }}</p>
+
+            <div class="suggest-head">
+              <span class="suggest-label">推荐提问</span>
+              <button class="refresh-btn" :disabled="!suggestions.length" @click="refreshSuggestions">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 0 0-15.5-6.3L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 15.5 6.3L21 16"/>
+                  <path d="M21 21v-5h-5"/>
+                </svg>
+                换一批
+              </button>
+            </div>
+            <div class="suggestion-list">
+              <button
+                v-for="s in visibleSuggestions"
+                :key="s"
+                class="suggestion-item"
+                @click="send(s)"
+              >
+                <span class="suggestion-dot"></span>
+                <span class="suggestion-text">{{ s }}</span>
+                <span class="suggestion-arrow">→</span>
+              </button>
             </div>
           </div>
 
@@ -51,7 +103,7 @@
           <input
             v-model="draft"
             class="chat-input-field"
-            placeholder="输入菜名或问题…"
+            :placeholder="inputPlaceholder"
             maxlength="200"
             @keyup.enter="send(draft)"
           >
@@ -65,20 +117,17 @@
     </transition>
 
     <button
+      v-if="!open"
       class="chat-fab"
-      :class="{ 'fab-active': open, 'fab-dragging': isDragging }"
       :style="fabStyle"
-      :title="open ? '关闭小助手' : '食堂小助手（可拖动）'"
-      @pointerdown="onFabDown"
+      :title="`打开${assistantTitle}`"
+      @click="openPanel"
     >
-      <svg v-if="!open" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
         <path d="M8 10h8M8 14h5"/>
       </svg>
-      <svg v-else viewBox="0 0 24 24" width="22" height="22" stroke="#fff" stroke-width="2.4" stroke-linecap="round">
-        <path d="M6 6l12 12M18 6L6 18"/>
-      </svg>
-      <span v-if="!open" class="fab-pulse"></span>
+      <span class="fab-pulse"></span>
     </button>
   </div>
 </template>
@@ -87,34 +136,53 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AnswerBubble from '@/components/chat/AnswerBubble.vue'
 import { askChat, askChatStream, getChatEngine, getChatSuggestions } from '@/api/chat'
+import { useUserStore } from '@/store/user'
 
-const FAB = 58
-/**
- * 面板尺寸：打开即大窗口。
- * 宽度上限 560px，高度撑满视口减去上下边距。
- */
+const EDGE = 12
+/** 面板尺寸：默认高窄窗口，与之前保持一致 */
 const PANEL_W = 560
-const PANEL_MIN_W = 420
-const EDGE = 16
-/** 圆球直径 */
-const FAB_SIZE = 58
+/** 每页推荐问题数 */
+const SUGGESTION_PAGE = 4
+
+const userStore = useUserStore()
+const isMerchant = computed(() => userStore.isMerchant)
 
 const open = ref(false)
+const docked = ref(localStorage.getItem('canteen_chat_docked') === '1')
 const draft = ref('')
 const loading = ref(false)
 const messages = ref([])
 const suggestions = ref([])
+const suggestionOffset = ref(0)
 const bodyEl = ref(null)
+const isDragging = ref(false)
 /** 当前推理引擎，仅用于头部文案 */
 const engine = ref('agent')
 const engineLabel = computed(() => (engine.value === 'agent'
   ? '智能助手 · 实时查库，随问随答'
   : '本地助手 · 菜品 · 档口 · 规则'))
 
-const pos = reactive({ x: 0, y: 0 })
+const assistantTitle = computed(() => (isMerchant.value ? '商家经营助手' : '食堂小助手'))
+const welcomeTitle = computed(() => (isMerchant.value ? '经营遇到问题？问我吧' : '你好，想问点什么？'))
+const welcomeSub = computed(() => (isMerchant.value
+  ? '菜品管理、订单处理、销售数据、账号绑定都可以问'
+  : '可以直接输入菜名，比如「宫保鸡丁」'))
+const inputPlaceholder = computed(() => (isMerchant.value
+  ? '输入经营问题，比如「菜品在哪里添加」'
+  : '输入菜名或问题…'))
+
+const STUDENT_SUGGESTIONS = ['今天有什么推荐', '哪些菜要避雷', '怎么投诉某个窗口', '食堂几点营业']
+const MERCHANT_SUGGESTIONS = ['菜品在哪里添加', '学生下单后怎么处理', '怎么查看销售数据', '怎么绑定邮箱', '怎么给管理员留言']
+
+const visibleSuggestions = computed(() => {
+  const list = suggestions.value
+  if (!list.length) return []
+  const count = Math.min(SUGGESTION_PAGE, list.length)
+  return Array.from({ length: count }, (_, i) => list[(suggestionOffset.value + i) % list.length])
+})
+
 const vp = reactive({ w: 1280, h: 800 })
-const isDragging = ref(false)
-let dragState = null
+const panelPos = reactive({ x: 0, y: 0 })
 
 /**
  * 等待时的趣味提示语。
@@ -149,29 +217,63 @@ function stopThinking() {
   }
 }
 
-function clampPos() {
-  pos.x = Math.min(Math.max(pos.x, 12), vp.w - FAB - 12)
-  pos.y = Math.min(Math.max(pos.y, 12), vp.h - FAB - 12)
+function floatWidth() {
+  return Math.min(PANEL_W, vp.w - EDGE * 2)
 }
+
+function floatHeight() {
+  return Math.max(420, vp.h - 32)
+}
+
+function placePanel() {
+  panelPos.x = Math.max(EDGE, vp.w - floatWidth() - 24)
+  panelPos.y = 16
+}
+
+const panelStyle = computed(() => {
+  // 固定侧栏：窗口尺寸与浮层完全一致，只是贴在右侧且不能拖动
+  if (docked.value) {
+    return {
+      top: '16px',
+      right: '0px',
+      width: floatWidth() + 'px',
+      height: floatHeight() + 'px',
+      left: 'auto',
+      borderRadius: '20px 0 0 20px'
+    }
+  }
+  return {
+    left: panelPos.x + 'px',
+    top: panelPos.y + 'px',
+    right: 'auto',
+    width: floatWidth() + 'px',
+    height: floatHeight() + 'px',
+    borderRadius: '20px'
+  }
+})
+
+const fabStyle = computed(() => ({ right: '32px', bottom: '96px' }))
 
 function onResize() {
   vp.w = window.innerWidth
   vp.h = window.innerHeight
-  clampPos()
+  if (docked.value) return
+  panelPos.x = Math.min(Math.max(panelPos.x, EDGE), Math.max(EDGE, vp.w - floatWidth() - EDGE))
+  panelPos.y = Math.min(Math.max(panelPos.y, 16), Math.max(16, vp.h - floatHeight() - 16))
 }
 
 onMounted(async () => {
   vp.w = window.innerWidth
   vp.h = window.innerHeight
-  // 默认停在右下角，避开悬浮购物车条（高度约 80px）
-  pos.x = vp.w - FAB - 28
-  pos.y = vp.h - FAB - 92
+  placePanel()
   window.addEventListener('resize', onResize)
   try {
     const res = await getChatSuggestions()
-    suggestions.value = res.data || []
+    suggestions.value = (res.data && res.data.length)
+      ? res.data
+      : (isMerchant.value ? MERCHANT_SUGGESTIONS : STUDENT_SUGGESTIONS)
   } catch {
-    suggestions.value = ['今天有什么推荐', '怎么投诉某个窗口', '食堂几点营业']
+    suggestions.value = isMerchant.value ? MERCHANT_SUGGESTIONS : STUDENT_SUGGESTIONS
   }
   try {
     const res = await getChatEngine()
@@ -183,115 +285,78 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
+  window.removeEventListener('pointermove', onHeadDrag)
+  window.removeEventListener('pointerup', onHeadUp)
   stopThinking()
 })
 
-function onFabDown(e) {
-  if (e.button !== undefined && e.button !== 0) return
-  e.preventDefault()
-  // 展开时圆球是关闭按钮，固定在面板右下角，不参与拖拽
-  if (open.value) {
-    dragState = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y, moved: false, fixed: true }
-    window.addEventListener('pointerup', onFabUp)
-    return
-  }
-  dragState = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y, moved: false, fixed: false }
-  window.addEventListener('pointermove', onFabMove)
-  window.addEventListener('pointerup', onFabUp)
+/* ---------------- 面板操作 ---------------- */
+
+function openPanel() {
+  open.value = true
+  scrollBottom()
 }
 
-function onFabMove(e) {
-  if (!dragState) return
-  const dx = e.clientX - dragState.sx
-  const dy = e.clientY - dragState.sy
-  if (!dragState.moved && Math.hypot(dx, dy) > 5) {
-    dragState.moved = true
-    isDragging.value = true
-  }
-  if (dragState.moved) {
-    pos.x = dragState.ox + dx
-    pos.y = dragState.oy + dy
-    clampPos()
-  }
+function closePanel() {
+  open.value = false
 }
 
-function onFabUp() {
-  window.removeEventListener('pointermove', onFabMove)
-  window.removeEventListener('pointerup', onFabUp)
-  const state = dragState
-  dragState = null
-  if (!state) return
+function newSession() {
+  messages.value = []
+  draft.value = ''
+  suggestionOffset.value = 0
+  open.value = true
+  scrollBottom()
+}
 
-  // 展开态：圆球就是关闭按钮，点一下收起
-  if (state.fixed) {
-    open.value = false
-    return
-  }
-
-  if (state.moved) {
-    setTimeout(() => { isDragging.value = false }, 50)
+function toggleDock() {
+  docked.value = !docked.value
+  localStorage.setItem('canteen_chat_docked', docked.value ? '1' : '0')
+  if (docked.value) {
+    open.value = true
   } else {
-    open.value = !open.value
+    // 取消固定后恢复为可拖动的浮层位置
+    placePanel()
   }
 }
 
-/**
- * 面板跟随圆球位置浮动。
- * <p>
- * 圆球收起时停在哪，展开后面板就以该点为锚点向左上展开；
- * 圆球完全落在面板右下方外侧，中间留一道缝隙。
- */
-const PANEL_H_MIN = 420
-/** 圆球与面板之间的缝隙 */
-const FAB_GAP = 12
+function refreshSuggestions() {
+  if (!suggestions.value.length) return
+  suggestionOffset.value = (suggestionOffset.value + SUGGESTION_PAGE) % suggestions.value.length
+}
 
-const panelSize = computed(() => {
-  const width = Math.max(PANEL_MIN_W, Math.min(PANEL_W, vp.w - EDGE * 2))
-  const centerY = pos.y + FAB_SIZE / 2
-  // 可用高度 = 球心到视口顶部，再扣掉球体半径 + 缝隙（球在面板下方）
-  const availH = centerY - FAB_SIZE / 2 - FAB_GAP - EDGE
-  const height = Math.max(PANEL_H_MIN, Math.min(vp.h - EDGE * 2, availH))
-  return { width, height }
-})
+/* ---------------- 浮动面板拖动 ---------------- */
 
-const panelStyle = computed(() => {
-  const { width, height } = panelSize.value
-  const centerX = pos.x + FAB_SIZE / 2
-  const centerY = pos.y + FAB_SIZE / 2
-  // 面板右下角对齐球心，但要让出球体+缝隙的宽度，保证球完全落在面板外且不出屏
-  let left = centerX - width - FAB_SIZE / 2 - FAB_GAP
-  let top = centerY - height - FAB_SIZE / 2 - FAB_GAP
-  // 只做最小边界保护，保持「跟随圆球」的语义
-  left = Math.max(EDGE, Math.min(left, vp.w - width - EDGE))
-  top = Math.max(EDGE, top)
-  return {
-    left: left + 'px',
-    top: top + 'px',
-    width: width + 'px',
-    height: height + 'px'
-  }
-})
+let headDrag = null
 
-/**
- * 展开时圆球停靠的实际位置：面板右下角外侧，与面板留一道缝隙。
- * 收起时用 pos（用户拖动后的位置）。
- */
-const fabStyle = computed(() => {
-  if (!open.value) {
-    return { left: pos.x + 'px', top: pos.y + 'px' }
-  }
-  const { width, height } = panelSize.value
-  const p = panelStyle.value
-  const left = parseFloat(p.left)
-  const top = parseFloat(p.top)
-  // 球体完全在面板外，与面板右下角之间留 GAP 的缝：
-  // 球左上角 = 面板右下角 + GAP
-  const GAP = 12
-  return {
-    left: (left + width + GAP) + 'px',
-    top: (top + height + GAP) + 'px'
-  }
-})
+function onHeadDown(e) {
+  // 固定侧栏时不可拖动
+  if (docked.value) return
+  if (e.button !== undefined && e.button !== 0) return
+  if (e.target.closest('button')) return
+  e.preventDefault()
+  headDrag = { sx: e.clientX, sy: e.clientY, ox: panelPos.x, oy: panelPos.y }
+  window.addEventListener('pointermove', onHeadDrag)
+  window.addEventListener('pointerup', onHeadUp)
+}
+
+function onHeadDrag(e) {
+  if (!headDrag) return
+  const w = floatWidth()
+  const h = floatHeight()
+  panelPos.x = Math.min(Math.max(headDrag.ox + e.clientX - headDrag.sx, EDGE), vp.w - w - EDGE)
+  panelPos.y = Math.min(Math.max(headDrag.oy + e.clientY - headDrag.sy, EDGE), vp.h - h - EDGE)
+  isDragging.value = true
+}
+
+function onHeadUp() {
+  window.removeEventListener('pointermove', onHeadDrag)
+  window.removeEventListener('pointerup', onHeadUp)
+  headDrag = null
+  isDragging.value = false
+}
+
+/* ---------------- 问答 ---------------- */
 
 async function send(text) {
   const question = String(text || '').trim()
@@ -306,7 +371,7 @@ async function send(text) {
   const botMsg = reactive({
     role: 'bot',
     streaming: false,
-    answer: { text: '', hit: true, items: [], quickReplies: [], sources: null }
+    answer: { text: '', hit: true, items: [], quickReplies: [], sources: null, actions: [] }
   })
   messages.value.push(botMsg)
   let streaming = false
@@ -408,27 +473,16 @@ async function scrollBottom() {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: grab;
-  box-shadow: 0 10px 26px rgba(255, 122, 26, 0.38), 0 2px 6px rgba(0, 0, 0, 0.1);
-  transition: transform .2s ease, box-shadow .2s ease, left .28s cubic-bezier(.34,1.4,.64,1), top .28s cubic-bezier(.34,1.4,.64,1);
-  touch-action: none;
-  user-select: none;
-  z-index: 3;
-}
-/* 展开时圆球嵌在面板右下角，作为关闭按钮 */
-.chat-fab.fab-active {
   cursor: pointer;
+  box-shadow: 0 10px 26px rgba(255, 122, 26, 0.38), 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: transform .2s ease, box-shadow .2s ease;
+  z-index: 3;
 }
 .chat-fab:hover {
   transform: scale(1.06);
   box-shadow: 0 14px 32px rgba(255, 122, 26, 0.45), 0 2px 8px rgba(0, 0, 0, 0.12);
 }
-.chat-fab:active { cursor: grabbing; }
-.chat-fab.fab-dragging {
-  transition: none;
-  transform: scale(1.1);
-  cursor: grabbing;
-}
+.chat-fab:active { transform: scale(0.96); }
 .fab-pulse {
   position: absolute;
   inset: -4px;
@@ -454,6 +508,8 @@ async function scrollBottom() {
   overflow: hidden;
   z-index: 1;
 }
+.chat-panel.panel-dragging { transition: none; }
+
 .chat-head {
   display: flex;
   align-items: center;
@@ -461,7 +517,13 @@ async function scrollBottom() {
   padding: 14px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
+.panel-dragging .chat-head { cursor: grabbing; }
+.panel-docked .chat-head { cursor: default; }
+
 .head-avatar {
   width: 34px;
   height: 34px;
@@ -470,12 +532,19 @@ async function scrollBottom() {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .head-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
-.head-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.head-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .head-text { flex: 1; min-width: 0; }
-.head-btn {
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   flex-shrink: 0;
+}
+.head-btn {
   width: 28px;
   height: 28px;
   border: none;
@@ -489,6 +558,7 @@ async function scrollBottom() {
   transition: background .15s ease, color .15s ease;
 }
 .head-btn:hover { background: var(--bg); color: var(--brand); }
+.head-btn-on { background: var(--brand-soft); color: var(--brand-dark); }
 .head-close:hover { background: #fdeaea; color: #b42318; }
 
 .chat-body {
@@ -512,23 +582,73 @@ async function scrollBottom() {
   justify-content: center;
 }
 .welcome-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-1); }
-.welcome-sub { margin: 4px 0 14px; font-size: 12px; color: var(--text-3); }
-.welcome-chips, .quick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.quick-chip {
+.welcome-sub { margin: 4px 0 0; font-size: 12px; color: var(--text-3); }
+
+.suggest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 20px 2px 8px;
+}
+.suggest-label {
   font-size: 12px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  color: var(--text-2);
+  font-weight: 600;
+  color: var(--text-3);
+}
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: background .15s ease, color .15s ease;
+}
+.refresh-btn:hover:not(:disabled) { background: var(--brand-soft); color: var(--brand); }
+.refresh-btn:disabled { opacity: .45; cursor: not-allowed; }
+.refresh-btn svg { width: 14px; height: 14px; }
+
+.suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
   background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
   transition: all .15s ease;
 }
-.quick-chip:hover {
-  border-color: var(--brand);
-  color: var(--brand);
+.suggestion-item:hover {
+  border-color: var(--brand-line);
   background: var(--brand-soft);
+  color: var(--brand-dark);
+  transform: translateX(2px);
 }
+.suggestion-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  opacity: .7;
+  flex-shrink: 0;
+}
+.suggestion-text { flex: 1; }
+.suggestion-arrow { color: var(--text-3); font-size: 12px; }
 
 .msg { display: flex; }
 .msg.user { justify-content: flex-end; }

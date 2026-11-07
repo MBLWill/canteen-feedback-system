@@ -24,4 +24,7 @@ public class ChatItemVO {
     private String linkLabel;
 
     private String link;
+
+    /** 菜品卡片是否显示「加入购物车」按钮 */
+    private Boolean canAddToCart;
 }

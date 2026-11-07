@@ -5,7 +5,8 @@ export function askChat(question, history) {
   if (Array.isArray(history) && history.length) {
     payload.history = history
   }
-  return request.post('/chat/ask', payload)
+  // 智能体多轮工具调用 + LLM 超时 30s，沿用 axios 默认 15s 会被误判成网络错误
+  return request.post('/chat/ask', payload, { timeout: 45000 })
 }
 
 /**
