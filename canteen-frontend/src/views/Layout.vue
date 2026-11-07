@@ -12,39 +12,88 @@
       </div>
 
       <el-scrollbar class="menu-scroll">
-        <div v-if="merchantMenus.length" class="menu-group">
-          <div class="menu-group-title">档口经营</div>
-          <el-menu :default-active="activePath" router class="app-menu">
-            <el-menu-item
-              v-for="item in merchantMenus"
-              :key="item.path"
-              :index="'/' + item.path"
+        <!-- 管理员：后台管理 / 日常使用 两栏可切换（互斥） -->
+        <div v-if="userStore.isAdmin" class="menu-group">
+          <div class="menu-group-title menu-group-title--switch">
+            <span>{{ adminMode === 'admin' ? '后台管理' : '日常使用' }}</span>
+            <button
+              class="mode-switch"
+              type="button"
+              :title="adminMode === 'admin' ? '切换到日常使用' : '切换到后台管理'"
+              @click="toggleAdminMode"
             >
-              <el-icon><component :is="item.meta.icon" /></el-icon>
-              <span>{{ item.meta.title }}</span>
-            </el-menu-item>
+              <el-icon :size="13"><component :is="adminMode === 'admin' ? 'Refresh' : 'RefreshLeft'" /></el-icon>
+              <span>{{ adminMode === 'admin' ? '日常使用' : '后台管理' }}</span>
+            </button>
+          </div>
+          <el-menu :default-active="activePath" router class="app-menu">
+            <template v-if="adminMode === 'admin'">
+              <el-menu-item
+                v-for="item in adminMenus"
+                :key="item.path"
+                :index="'/' + item.path"
+              >
+                <el-icon><component :is="item.meta.icon" /></el-icon>
+                <span>{{ item.meta.title }}</span>
+              </el-menu-item>
+            </template>
+            <template v-else>
+              <el-menu-item
+                v-for="item in studentMenus"
+                :key="item.path"
+                :index="'/' + item.path"
+              >
+                <el-icon><component :is="item.meta.icon" /></el-icon>
+                <span>{{ item.meta.title }}</span>
+              </el-menu-item>
+            </template>
           </el-menu>
         </div>
 
-        <div v-if="studentMenus.length" class="menu-group">
+        <!-- 商家：档口经营 / 日常使用 两栏可切换（互斥） -->
+        <div v-else-if="userStore.isMerchant" class="menu-group">
+          <div class="menu-group-title menu-group-title--switch">
+            <span>{{ merchantMode === 'merchant' ? '档口经营' : '日常使用' }}</span>
+            <button
+              class="mode-switch"
+              type="button"
+              :title="merchantMode === 'merchant' ? '切换到日常使用' : '切换到档口经营'"
+              @click="toggleMerchantMode"
+            >
+              <el-icon :size="13"><component :is="merchantMode === 'merchant' ? 'Refresh' : 'RefreshLeft'" /></el-icon>
+              <span>{{ merchantMode === 'merchant' ? '日常使用' : '档口经营' }}</span>
+            </button>
+          </div>
+          <el-menu :default-active="activePath" router class="app-menu">
+            <template v-if="merchantMode === 'merchant'">
+              <el-menu-item
+                v-for="item in merchantMenus"
+                :key="item.path"
+                :index="'/' + item.path"
+              >
+                <el-icon><component :is="item.meta.icon" /></el-icon>
+                <span>{{ item.meta.title }}</span>
+              </el-menu-item>
+            </template>
+            <template v-else>
+              <el-menu-item
+                v-for="item in studentMenus"
+                :key="item.path"
+                :index="'/' + item.path"
+              >
+                <el-icon><component :is="item.meta.icon" /></el-icon>
+                <span>{{ item.meta.title }}</span>
+              </el-menu-item>
+            </template>
+          </el-menu>
+        </div>
+
+        <!-- 学生：日常使用 -->
+        <div v-else-if="studentMenus.length" class="menu-group">
           <div class="menu-group-title">日常使用</div>
           <el-menu :default-active="activePath" router class="app-menu">
             <el-menu-item
               v-for="item in studentMenus"
-              :key="item.path"
-              :index="'/' + item.path"
-            >
-              <el-icon><component :is="item.meta.icon" /></el-icon>
-              <span>{{ item.meta.title }}</span>
-            </el-menu-item>
-          </el-menu>
-        </div>
-
-        <div v-if="adminMenus.length" class="menu-group">
-          <div class="menu-group-title">后台管理</div>
-          <el-menu :default-active="activePath" router class="app-menu">
-            <el-menu-item
-              v-for="item in adminMenus"
               :key="item.path"
               :index="'/' + item.path"
             >
@@ -123,7 +172,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
@@ -136,26 +185,38 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const menus = computed(() => {
-  const children = router.options.routes.find(r => r.path === '/')?.children || []
-  return children.filter(item => {
-    if (item.meta?.hidden) return false
-    if (item.meta?.admin && !userStore.isAdmin) return false
-    if (item.meta?.merchant && !userStore.isMerchant) return false
-    // 商家只保留 merchant 菜单；学生/管理员看不到 merchant 菜单
-    if (userStore.isMerchant !== !!item.meta?.merchant) return false
-    return true
-  })
-})
+// 管理员侧边栏切换：'admin' 后台管理（默认），'daily' 日常使用（与学生端一致）
+const adminMode = ref('admin')
+// 商家侧边栏切换：'merchant' 档口经营（默认），'daily' 日常使用（与学生端一致）
+const merchantMode = ref('merchant')
 
-const studentMenus = computed(() => menus.value.filter(i => !String(i.path).startsWith('admin') && !i.meta?.merchant))
-const merchantMenus = computed(() => menus.value.filter(i => !!i.meta?.merchant))
-const adminMenus = computed(() => menus.value.filter(i => String(i.path).startsWith('admin')))
+const allChildren = computed(() => router.options.routes.find(r => r.path === '/')?.children || [])
+
+// 学生日常使用菜单（非 admin、非 merchant），管理员/商家「日常使用」也复用这一组
+const studentMenus = computed(() => allChildren.value.filter(i =>
+  !i.meta?.hidden && !i.meta?.admin && !i.meta?.merchant
+))
+// 商家档口经营菜单
+const merchantMenus = computed(() => allChildren.value.filter(i =>
+  !i.meta?.hidden && !!i.meta?.merchant
+))
+// 管理员后台管理菜单
+const adminMenus = computed(() => allChildren.value.filter(i =>
+  !i.meta?.hidden && !!i.meta?.admin
+))
 
 const activePath = computed(() => '/' + (route.path.split('/').slice(1, 3).join('/') || 'dashboard'))
 const currentTitle = computed(() => route.meta.title || '')
 
 const avatarText = computed(() => (userStore.nickname || 'U').trim().slice(0, 1).toUpperCase())
+
+function toggleAdminMode() {
+  adminMode.value = adminMode.value === 'admin' ? 'daily' : 'admin'
+}
+
+function toggleMerchantMode() {
+  merchantMode.value = merchantMode.value === 'merchant' ? 'daily' : 'merchant'
+}
 
 function handleCommand(command) {
   if (command === 'logout') {
@@ -243,6 +304,33 @@ function doLogout() {
   font-weight: 600;
   letter-spacing: 1.2px;
   padding: 14px 22px 6px;
+}
+
+.menu-group-title--switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-switch:hover {
+  background: #fff4ec;
+  border-color: var(--brand);
 }
 
 .app-menu {

@@ -16,7 +16,7 @@ canteen:
     # 结算时是否以数据库当前价格重算，防止菜品改价后按旧价结算
     reprice-on-checkout: true
     # 是否允许跨档口混装；false 时按档口拆成多笔订单（现有 dining_order 单档口结构）
-    allow-multi-stall: false
+    allow-multi-stall: true
 
   checkout:
     # 打包费，单位元，堂食场景填 0
@@ -46,9 +46,9 @@ canteen:
 
   pay:
     # 【必填】支付通道：mock / wechat / alipay
-    # 默认用 mock：内置模拟支付，不依赖外部网关，本地/答辩开箱即用、不会报「系统有点儿忙」。
-    # 想接真实支付宝沙箱，把这里改成 alipay 并配好下面的密钥与 CANTEEN_PAY_NOTIFY_BASE_URL。
-    channel: ${CANTEEN_PAY_CHANNEL:mock}
+    # alipay：接入支付宝沙箱扫码支付（电脑网站支付，跳转沙箱收银台）；本地开发收不到异步通知时靠主动查单兜底。
+    # mock：内置模拟支付，不依赖外部网关，本地/答辩开箱即用、不会报「系统有点儿忙」。
+    channel: ${CANTEEN_PAY_CHANNEL:alipay}
     # 是否使用沙箱环境
     sandbox: true
     # 【必填】支付平台异步回调可达的后端公网地址，本机联调填 http://127.0.0.1:8080；上线填域名或内网穿透地址

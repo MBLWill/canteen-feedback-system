@@ -6,11 +6,31 @@ import com.qmz.canteen.common.BusinessException;
 import com.qmz.canteen.common.ResultCode;
 import com.qmz.canteen.dto.StallRequest;
 import com.qmz.canteen.entity.Banner;
+import com.qmz.canteen.entity.CartItem;
+import com.qmz.canteen.entity.DiningOrder;
+import com.qmz.canteen.entity.DiningOrderItem;
 import com.qmz.canteen.entity.Dish;
+import com.qmz.canteen.entity.DishFavorite;
+import com.qmz.canteen.entity.DishReview;
+import com.qmz.canteen.entity.DishSale;
+import com.qmz.canteen.entity.Feedback;
+import com.qmz.canteen.entity.MerchantMessage;
+import com.qmz.canteen.entity.MerchantTodo;
+import com.qmz.canteen.entity.PayRecord;
 import com.qmz.canteen.entity.Stall;
 import com.qmz.canteen.entity.User;
 import com.qmz.canteen.mapper.BannerMapper;
+import com.qmz.canteen.mapper.CartItemMapper;
+import com.qmz.canteen.mapper.DiningOrderItemMapper;
+import com.qmz.canteen.mapper.DishFavoriteMapper;
 import com.qmz.canteen.mapper.DishMapper;
+import com.qmz.canteen.mapper.DishReviewMapper;
+import com.qmz.canteen.mapper.DishSaleMapper;
+import com.qmz.canteen.mapper.FeedbackMapper;
+import com.qmz.canteen.mapper.MerchantMessageMapper;
+import com.qmz.canteen.mapper.MerchantTodoMapper;
+import com.qmz.canteen.mapper.OrderMapper;
+import com.qmz.canteen.mapper.PayRecordMapper;
 import com.qmz.canteen.mapper.StallMapper;
 import com.qmz.canteen.mapper.UserMapper;
 import com.qmz.canteen.security.UserRole;
@@ -39,6 +59,16 @@ public class StallServiceImpl implements StallService {
     private final DishMapper dishMapper;
     private final BannerMapper bannerMapper;
     private final UserMapper userMapper;
+    private final DishReviewMapper dishReviewMapper;
+    private final DishFavoriteMapper dishFavoriteMapper;
+    private final DishSaleMapper dishSaleMapper;
+    private final CartItemMapper cartItemMapper;
+    private final OrderMapper orderMapper;
+    private final DiningOrderItemMapper orderItemMapper;
+    private final PayRecordMapper payRecordMapper;
+    private final FeedbackMapper feedbackMapper;
+    private final MerchantMessageMapper merchantMessageMapper;
+    private final MerchantTodoMapper merchantTodoMapper;
     private final BCryptPasswordEncoder passwordEncoder;
 
     private static final long SIGNATURE_LIMIT = 3L;
@@ -214,20 +244,71 @@ public class StallServiceImpl implements StallService {
     }
 
     @Override
+    @Transactional
     public void deleteStall(Long id) {
         Stall stall = stallMapper.selectById(id);
         if (stall == null) {
             throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "档口不存在");
         }
-        long dishCount = dishMapper.selectCount(new LambdaQueryWrapper<Dish>()
-                .eq(Dish::getStallId, id));
-        if (dishCount > 0) {
-            throw new BusinessException("该档口下还有 " + dishCount + " 个菜品，无法删除");
+        // 收集该档口下所有菜品 ID，用于清理评价、收藏、订单明细等以 dish_id 关联的数据
+        List<Long> dishIds = dishMapper.selectList(new LambdaQueryWrapper<Dish>()
+                        .eq(Dish::getStallId, id))
+                .stream().map(Dish::getId).toList();
+
+        // 1. 菜品评价（逻辑删除，按 dish_id）
+        if (!dishIds.isEmpty()) {
+            dishReviewMapper.delete(new LambdaQueryWrapper<DishReview>().in(DishReview::getDishId, dishIds));
         }
-        // 档口删了广告还挂着 stallId，前端会显示成一个没有名字的入口
+        // 2. 菜品收藏（物理删除，按 dish_id）
+        if (!dishIds.isEmpty()) {
+            dishFavoriteMapper.delete(new LambdaQueryWrapper<DishFavorite>().in(DishFavorite::getDishId, dishIds));
+        }
+        // 3. 销量记录（物理删除，按档口）
+        dishSaleMapper.delete(new LambdaQueryWrapper<DishSale>().eq(DishSale::getStallId, id));
+
+        // 4. 订单明细（逻辑删除）：先收集该档口订单，再按订单与菜品两种口径清理
+        List<Long> orderIds = orderMapper.selectList(new LambdaQueryWrapper<DiningOrder>()
+                        .eq(DiningOrder::getStallId, id))
+                .stream().map(DiningOrder::getId).toList();
+        if (!orderIds.isEmpty()) {
+            orderItemMapper.delete(new LambdaQueryWrapper<DiningOrderItem>().in(DiningOrderItem::getOrderId, orderIds));
+            // 5. 支付流水（物理删除，按订单）
+            payRecordMapper.delete(new LambdaQueryWrapper<PayRecord>().in(PayRecord::getOrderId, orderIds));
+        }
+        // 订单明细里可能还存在跨档口迁移过来的菜品，按 dish_id 兜底再清一次
+        if (!dishIds.isEmpty()) {
+            orderItemMapper.delete(new LambdaQueryWrapper<DiningOrderItem>().in(DiningOrderItem::getDishId, dishIds));
+        }
+        // 6. 订单（逻辑删除，按档口）
+        orderMapper.delete(new LambdaQueryWrapper<DiningOrder>().eq(DiningOrder::getStallId, id));
+
+        // 7. 购物车（物理删除，按档口与菜品）
+        cartItemMapper.delete(new LambdaQueryWrapper<CartItem>().eq(CartItem::getStallId, id));
+        if (!dishIds.isEmpty()) {
+            cartItemMapper.delete(new LambdaQueryWrapper<CartItem>().in(CartItem::getDishId, dishIds));
+        }
+
+        // 8. 留言反馈（逻辑删除，按档口）
+        feedbackMapper.delete(new LambdaQueryWrapper<Feedback>().eq(Feedback::getStallId, id));
+        // 9. 商家留言（物理删除，按档口）
+        merchantMessageMapper.delete(new LambdaQueryWrapper<MerchantMessage>().eq(MerchantMessage::getStallId, id));
+        // 10. 商家待办（物理删除，按档口）
+        merchantTodoMapper.delete(new LambdaQueryWrapper<MerchantTodo>().eq(MerchantTodo::getStallId, id));
+
+        // 11. 菜品（逻辑删除，按档口）
+        dishMapper.delete(new LambdaQueryWrapper<Dish>().eq(Dish::getStallId, id));
+
+        // 12. 商家账号（逻辑删除，仅该档口的 MERCHANT 账号）
+        userMapper.delete(new LambdaQueryWrapper<User>()
+                .eq(User::getStallId, id)
+                .eq(User::getRole, UserRole.MERCHANT.name()));
+
+        // 13. 档口删除后广告还挂着 stallId，前端会显示成没有名字的入口，置空
         bannerMapper.update(null, new LambdaUpdateWrapper<Banner>()
                 .eq(Banner::getStallId, id)
                 .set(Banner::getStallId, null));
+
+        // 14. 最后删除档口本身（逻辑删除）
         stallMapper.deleteById(id);
     }
 }

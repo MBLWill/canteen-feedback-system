@@ -4,7 +4,7 @@
       <template #header>
         <div class="manage-header">
           <span style="font-weight: 600">
-            {{ userStore.isAdmin ? '全部留言反馈' : '我的留言反馈' }}
+            {{ isAdminView ? '全部留言反馈' : '我的留言反馈' }}
           </span>
           <div class="batch-toolbar">
             <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
@@ -62,7 +62,7 @@
 
             <div style="margin-top: 8px; text-align: right">
               <el-button
-                v-if="userStore.isAdmin && item.status !== 'RESOLVED'"
+                v-if="isAdminView && item.status !== 'RESOLVED'"
                 link
                 type="success"
                 @click="openReply(item)"
@@ -142,12 +142,17 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageFeedbacks, createFeedback, replyFeedback, deleteFeedback } from '@/api/feedback'
 import { listStalls } from '@/api/stall'
 import { useUserStore } from '@/store/user'
 
 const userStore = useUserStore()
+const route = useRoute()
+
+// 后台管理视角（/admin/feedbacks）显示全部留言+回复；日常使用视角（/feedbacks）与学生端一致，仅看自己的留言
+const isAdminView = computed(() => route.path.startsWith('/admin'))
 const loading = ref(false)
 const submitting = ref(false)
 const records = ref([])
@@ -205,7 +210,9 @@ function statusTag(status) {
 async function loadData() {
   loading.value = true
   try {
-    const res = await pageFeedbacks(query)
+    // 日常使用视角强制只看自己的留言（管理员身份也按 MINE 返回）
+    const params = isAdminView.value ? { ...query } : { ...query, scope: 'MINE' }
+    const res = await pageFeedbacks(params)
     records.value = res.data.records
     total.value = res.data.total
     selectedIds.value = []

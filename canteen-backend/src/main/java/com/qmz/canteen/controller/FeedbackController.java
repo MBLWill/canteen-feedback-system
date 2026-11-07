@@ -34,8 +34,10 @@ public class FeedbackController {
 
     @GetMapping
     public Result<PageResult<FeedbackVO>> page(@Valid FeedbackQuery query) {
-        boolean admin = UserContext.isAdmin();
-        String scope = admin ? "ALL" : "MINE";
+        // 管理员默认看全部；若前端显式传 scope=MINE（如管理员在「日常使用」里看自己的留言），则尊重该值
+        String scope = "MINE".equals(query.getScope())
+                ? "MINE"
+                : (UserContext.isAdmin() ? "ALL" : "MINE");
         return Result.success(feedbackService.pageFeedbacks(query, UserContext.getUserId(), scope));
     }
 

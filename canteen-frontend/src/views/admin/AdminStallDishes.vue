@@ -2,10 +2,10 @@
   <div class="page-container stall-dishes-page" v-loading="loading">
     <div class="page-head">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="{ path: '/admin/stalls' }">档口管理</el-breadcrumb-item>
+        <el-breadcrumb-item :to="{ path: '/admin/stalls' }">商家管理</el-breadcrumb-item>
         <el-breadcrumb-item>{{ stall?.name || '档口菜单' }}</el-breadcrumb-item>
       </el-breadcrumb>
-      <el-button @click="backToStalls">← 返回档口管理</el-button>
+      <el-button @click="backToStalls">← 返回商家管理</el-button>
     </div>
 
     <el-card shadow="never" class="hero-card">
@@ -32,6 +32,40 @@
         <el-button v-else @click="manageMode = true">菜品管理</el-button>
         <el-button type="primary" @click="openCreate">＋ 新增菜品</el-button>
       </div>
+    </el-card>
+
+    <el-card shadow="never" class="cert-card">
+      <template #header>
+        <div class="cert-header">
+          <span style="font-weight: 600">商家认证信息</span>
+          <span class="muted" style="font-size: 12px">由商家在个人中心提交，管理员查看</span>
+        </div>
+      </template>
+      <el-row :gutter="24">
+        <el-col :span="8">
+          <div class="cert-title">健康证</div>
+          <div class="cert-box">
+            <el-image v-if="stall?.healthCertUrl" :src="stall.healthCertUrl" :preview-src-list="[stall.healthCertUrl]" fit="cover" class="cert-img" />
+            <div v-else class="cert-empty">未上传</div>
+          </div>
+        </el-col>
+        <el-col :span="8">
+          <div class="cert-title">营业执照</div>
+          <div class="cert-box">
+            <el-image v-if="stall?.licenseUrl" :src="stall.licenseUrl" :preview-src-list="[stall.licenseUrl]" fit="cover" class="cert-img" />
+            <div v-else class="cert-empty">未上传</div>
+          </div>
+        </el-col>
+        <el-col :span="8">
+          <div class="cert-title">商家账号信息</div>
+          <div class="cert-info">
+            <div class="info-row"><span class="info-label">商家账号</span><span>{{ stall?.merchantUsername || '未建' }}</span></div>
+            <div class="info-row"><span class="info-label">负责人</span><span>{{ stall?.managerName || '-' }}</span></div>
+            <div class="info-row"><span class="info-label">联系电话</span><span>{{ stall?.managerPhone || '-' }}</span></div>
+            <div class="info-row"><span class="info-label">绑定邮箱</span><span>{{ stall?.merchantEmail || '未绑定' }}</span></div>
+          </div>
+        </el-col>
+      </el-row>
     </el-card>
 
     <el-card shadow="never" class="filter-card">
@@ -384,6 +418,68 @@ onMounted(async () => {
 
 .filter-card {
   margin-bottom: 16px;
+}
+
+.cert-card {
+  margin-bottom: 16px;
+}
+
+.cert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cert-title {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+
+.cert-box {
+  width: 100%;
+  height: 140px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #fafafa;
+}
+
+.cert-img {
+  width: 100%;
+  height: 100%;
+}
+
+.cert-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.cert-info {
+  padding: 8px 0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: var(--text-3);
 }
 
 .filter-bar {

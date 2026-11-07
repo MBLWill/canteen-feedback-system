@@ -4,7 +4,7 @@
       <template #header>
         <div class="manage-header">
           <div class="header-left">
-            <span style="font-weight: 600">档口 / 窗口管理</span>
+            <span style="font-weight: 600">商家管理</span>
             <el-select v-model="zone" size="small" style="width: 150px" @change="loadData">
               <el-option v-for="opt in zoneOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
             </el-select>
@@ -45,6 +45,12 @@
         <el-table-column label="档口名称" min-width="160">
           <template #default="{ row }">
             <span class="stall-name-cell">{{ row.name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="负责人 / 电话" min-width="150">
+          <template #default="{ row }">
+            <div>{{ row.managerName || '-' }}</div>
+            <div class="muted" style="font-size: 12px">{{ row.managerPhone || '-' }}</div>
           </template>
         </el-table-column>
         <el-table-column label="商家账号" width="110" align="center">
@@ -428,7 +434,11 @@ async function submitForm() {
 }
 
 function handleDelete(row) {
-  ElMessageBox.confirm(`确定删除档口「${row.name}」吗？`, '提示', { type: 'warning' })
+  ElMessageBox.confirm(
+    `确定删除档口「${row.name}」吗？删除后将同时清除该档口下的菜品、评价、订单等全部关联数据，且不可恢复。`,
+    '提示',
+    { type: 'warning', confirmButtonText: '确定删除', confirmButtonClass: 'el-button--danger' }
+  )
     .then(async () => {
       await deleteStall(row.id)
       ElMessage.success('删除成功')
@@ -441,7 +451,7 @@ async function handleBatchDelete() {
   const rows = selectedRows.value
   if (!rows.length) return
   try {
-    await ElMessageBox.confirm(`确定删除选中的 ${rows.length} 项吗？删除后不可恢复`, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定删除选中的 ${rows.length} 项吗？删除后将同时清除这些档口下的菜品、评价、订单等全部关联数据，且不可恢复`, '提示', { type: 'warning', confirmButtonText: '确定删除', confirmButtonClass: 'el-button--danger' })
   } catch {
     return
   }
