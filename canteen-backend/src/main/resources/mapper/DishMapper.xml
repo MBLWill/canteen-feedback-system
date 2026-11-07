@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qmz.canteen.mapper.DishMapper">
+
+    <sql id="statColumns">
+        d.id, d.stall_id, d.name, d.price, d.category, d.image, d.description, d.featured, d.status, d.create_time,
+        s.name AS stall_name,
+        s.window_no AS window_no,
+        IFNULL(ROUND(AVG(r.rating), 2), 0) AS avg_rating,
+        COUNT(DISTINCT r.id) AS review_count,
+        IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
+               / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS good_rate
+    </sql>
+
+    <sql id="groupByDish">
+        GROUP BY d.id, d.stall_id, d.name, d.price, d.category, d.image, d.description, d.featured, d.status,
+                 d.create_time, s.name, s.window_no
+    </sql>
+
+    <sql id="dishWhere">
+        WHERE d.deleted = 0
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (d.name LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR d.description LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR s.name LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        <if test="query.stallId != null">
+            AND d.stall_id = #{query.stallId}
+        </if>
+        <if test="query.category != null and query.category != ''">
+            AND d.category = #{query.category}
+        </if>
+        <if test="query.minPrice != null">
+            AND d.price &gt;= #{query.minPrice}
+        </if>
+        <if test="query.maxPrice != null">
+            AND d.price &lt;= #{query.maxPrice}
+        </if>
+    </sql>
+
+    <select id="selectDishPage" resultType="com.qmz.canteen.vo.DishVO">
+        SELECT
+        <include refid="statColumns"/>,
+        <choose>
+            <when test="userId != null">
+                EXISTS(SELECT 1 FROM dish_favorite f WHERE f.dish_id = d.id AND f.user_id = #{userId}) AS favorited
+            </when>
+            <otherwise>
+                0 AS favorited
+            </otherwise>
+        </choose>
+        FROM dish d
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        <include refid="dishWhere"/>
+        AND d.status = 1
+        <include refid="groupByDish"/>
+        <if test="query.minRating != null">
+            HAVING avg_rating &gt;= #{query.minRating}
+        </if>
+        ORDER BY ${orderSql}
+    </select>
+
+    <select id="selectDishDetail" resultType="com.qmz.canteen.vo.DishVO">
+        SELECT
+        <include refid="statColumns"/>,
+        <choose>
+            <when test="userId != null">
+                EXISTS(SELECT 1 FROM dish_favorite f WHERE f.dish_id = d.id AND f.user_id = #{userId}) AS favorited
+            </when>
+            <otherwise>
+                0 AS favorited
+            </otherwise>
+        </choose>
+        FROM dish d
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.id = #{dishId} AND d.deleted = 0
+        <include refid="groupByDish"/>
+    </select>
+
+    <select id="selectFavoriteDishes" resultType="com.qmz.canteen.vo.DishVO">
+        SELECT
+        <include refid="statColumns"/>,
+        1 AS favorited
+        FROM dish d
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.deleted = 0
+          AND EXISTS(SELECT 1 FROM dish_favorite f WHERE f.dish_id = d.id AND f.user_id = #{userId})
+        <include refid="groupByDish"/>
+        ORDER BY avg_rating DESC, review_count DESC
+    </select>
+
+    <select id="selectRecommendDishes" resultType="com.qmz.canteen.vo.DishVO">
+        SELECT
+        d.id, d.stall_id, d.name, d.price, d.category, d.image, d.description, d.featured, d.status, d.create_time,
+        s.name AS stall_name,
+        s.window_no AS window_no,
+        IFNULL(ROUND(AVG(r.rating), 2), 0) AS avg_rating,
+        COUNT(DISTINCT r.id) AS review_count,
+        IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
+               / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS good_rate,
+        0 AS favorited
+        FROM dish d
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.deleted = 0 AND d.status = 1 AND d.id &lt;&gt; #{dishId}
+        <include refid="groupByDish"/>
+        ORDER BY avg_rating DESC, review_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectSignatureDishes" resultType="com.qmz.canteen.vo.DishVO">
+        SELECT
+        <include refid="statColumns"/>,
+        0 AS favorited
+        FROM dish d
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.deleted = 0 AND d.status = 1 AND d.stall_id = #{stallId}
+        <include refid="groupByDish"/>
+        ORDER BY d.featured DESC, avg_rating DESC, review_count DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

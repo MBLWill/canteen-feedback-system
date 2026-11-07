@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qmz.canteen.mapper.DishReviewMapper">
+
+    <select id="selectReviewPage" resultType="com.qmz.canteen.vo.ReviewVO">
+        SELECT
+            r.id,
+            r.dish_id AS dishId,
+            d.name AS dishName,
+            d.image AS dishImage,
+            s.id AS stallId,
+            s.name AS stallName,
+            r.user_id AS userId,
+            CASE WHEN r.anonymous = 1 THEN '匿名用户' ELSE IFNULL(u.real_name, '已注销用户') END AS userName,
+            CASE WHEN r.anonymous = 1 THEN '' ELSE IFNULL(u.avatar, '') END AS avatar,
+            r.rating,
+            r.content,
+            r.anonymous,
+            r.status,
+            <choose>
+                <when test="currentUserId != null">
+                    (r.user_id = #{currentUserId}) AS mine
+                </when>
+                <otherwise>
+                    0 AS mine
+                </otherwise>
+            </choose>
+            ,
+            r.create_time AS createTime
+        FROM dish_review r
+        INNER JOIN dish d ON r.dish_id = d.id AND d.deleted = 0
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN sys_user u ON r.user_id = u.id AND u.deleted = 0
+        WHERE r.deleted = 0
+        <if test="query.dishId != null">
+            AND r.dish_id = #{query.dishId}
+        </if>
+        <if test="query.userId != null">
+            AND r.user_id = #{query.userId}
+        </if>
+        <if test="query.stallId != null">
+            AND d.stall_id = #{query.stallId}
+        </if>
+        <if test="query.rating != null">
+            AND r.rating = #{query.rating}
+        </if>
+        <if test="query.status != null">
+            AND r.status = #{query.status}
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (r.content LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR d.name LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        ORDER BY r.create_time DESC
+    </select>
+
+</mapper>

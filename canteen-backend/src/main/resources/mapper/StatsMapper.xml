@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qmz.canteen.mapper.StatsMapper">
+
+    <select id="selectOverview" resultType="java.util.LinkedHashMap">
+        SELECT
+            (SELECT COUNT(*) FROM canteen_stall WHERE deleted = 0 AND status = 1) AS stallCount,
+            (SELECT COUNT(*) FROM dish WHERE deleted = 0 AND status = 1)          AS dishCount,
+            (SELECT COUNT(*) FROM dish_review WHERE deleted = 0 AND status = 1)  AS reviewCount,
+            (SELECT COUNT(*) FROM feedback WHERE deleted = 0)                    AS feedbackCount,
+            (SELECT COUNT(*) FROM feedback WHERE deleted = 0 AND status = 'PENDING') AS pendingFeedbackCount,
+            (SELECT COUNT(*) FROM sys_user WHERE deleted = 0 AND role = 'STUDENT') AS studentCount,
+            (SELECT COUNT(*) FROM dish_favorite) AS favoriteCount,
+            (SELECT IFNULL(ROUND(AVG(rating), 2), 0) FROM dish_review WHERE deleted = 0 AND status = 1) AS avgRating,
+            (SELECT IFNULL(ROUND(SUM(CASE WHEN rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END) / COUNT(*) * 100, 2), 0)
+               FROM dish_review WHERE deleted = 0 AND status = 1) AS goodRate,
+            (SELECT COUNT(*) FROM dish_review WHERE deleted = 0 AND status = 1
+               AND DATE(create_time) = CURDATE()) AS todayReviewCount
+    </select>
+
+    <select id="selectDishRanking" resultType="com.qmz.canteen.vo.DishRankVO">
+        SELECT
+            d.id AS dishId,
+            d.name AS dishName,
+            d.image AS image,
+            s.id AS stallId,
+            s.name AS stallName,
+            s.window_no AS windowNo,
+            CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS stallZone,
+            ROUND(AVG(r.rating), 2) AS avgRating,
+            COUNT(r.id) AS reviewCount,
+            ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END) / COUNT(r.id) * 100, 2) AS goodRate
+        FROM dish d
+        INNER JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        INNER JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.deleted = 0 AND d.status = 1
+        GROUP BY d.id, d.name, d.image, s.id, s.name, s.window_no, s.area, s.floor
+        ORDER BY avgRating DESC, reviewCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectStallGoodRate" resultType="com.qmz.canteen.vo.StallGoodRateVO">
+        SELECT
+            s.id AS stallId,
+            s.name AS stallName,
+            s.window_no AS windowNo,
+            CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS stallZone,
+            SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END) AS goodCount,
+            SUM(CASE WHEN r.rating = 3 THEN 1 ELSE 0 END)                   AS normalCount,
+            SUM(CASE WHEN r.rating &lt;= 2 THEN 1 ELSE 0 END)                     AS badCount,
+            COUNT(r.id) AS total,
+            ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END) / NULLIF(COUNT(r.id), 0) * 100, 2) AS goodRate
+        FROM canteen_stall s
+        INNER JOIN dish d ON d.stall_id = s.id AND d.deleted = 0
+        INNER JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE s.deleted = 0 AND s.status = 1
+        GROUP BY s.id, s.name, s.window_no, s.area, s.floor
+        ORDER BY goodRate DESC, total DESC
+    </select>
+
+    <select id="selectStallPopularity" resultType="com.qmz.canteen.vo.StallPopularityVO">
+        SELECT
+            s.id AS stallId,
+            s.name AS stallName,
+            s.window_no AS windowNo,
+            s.location AS location,
+            CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS stallZone,
+            s.cover_image AS coverImage,
+            IFNULL(ROUND(AVG(r.rating), 2), 0) AS avgRating,
+            COUNT(DISTINCT r.id) AS reviewCount,
+            IFNULL(fav.favoriteCount, 0) AS favoriteCount,
+            ROUND(IFNULL(AVG(r.rating), 0) * 15
+                  + COUNT(DISTINCT r.id) * 1.0
+                  + IFNULL(fav.favoriteCount, 0) * 1.5, 2) AS popularityScore
+        FROM canteen_stall s
+        LEFT JOIN dish d ON d.stall_id = s.id AND d.deleted = 0 AND d.status = 1
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        LEFT JOIN (
+            SELECT d2.stall_id AS stall_id, COUNT(*) AS favoriteCount
+            FROM dish_favorite f
+            INNER JOIN dish d2 ON f.dish_id = d2.id AND d2.deleted = 0
+            GROUP BY d2.stall_id
+        ) fav ON fav.stall_id = s.id
+        WHERE s.deleted = 0 AND s.status = 1
+        GROUP BY s.id, s.name, s.window_no, s.location, s.area, s.floor, s.cover_image, fav.favoriteCount
+        ORDER BY popularityScore DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectRatingTrend" resultType="com.qmz.canteen.vo.TrendVO">
+        WITH RECURSIVE date_seq AS (
+            SELECT DATE_SUB(CURDATE(), INTERVAL (#{days} - 1) DAY) AS d
+            UNION ALL
+            SELECT d + INTERVAL 1 DAY FROM date_seq WHERE d &lt; CURDATE()
+        )
+        SELECT
+            DATE_FORMAT(ds.d, '%Y-%m-%d') AS date,
+            IFNULL(ROUND(AVG(r.rating), 2), 0) AS avgRating,
+            COUNT(r.id) AS reviewCount
+        FROM date_seq ds
+        LEFT JOIN dish_review r
+               ON r.deleted = 0 AND r.status = 1 AND DATE(r.create_time) = ds.d
+        GROUP BY ds.d
+        ORDER BY ds.d
+    </select>
+
+    <!-- 美食红黑榜：只统计有评价的在售菜品，无评价的菜品无法定位到图上 -->
+    <select id="selectDishScatter" resultType="com.qmz.canteen.vo.DishScatterVO">
+        SELECT
+            d.id                                   AS dishId,
+            d.name                                 AS dishName,
+            s.id                                   AS stallId,
+            s.name                                 AS stallName,
+            s.window_no                            AS windowNo,
+            CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS stallZone,
+            d.price                                AS price,
+            ROUND(AVG(r.rating), 2)                AS avgRating,
+            COUNT(r.id)                            AS reviewCount,
+            ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END) / COUNT(r.id) * 100, 2) AS goodRate
+        FROM dish d
+        INNER JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        INNER JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.deleted = 0 AND d.status = 1 AND s.status = 1
+        GROUP BY d.id, d.name, s.id, s.name, s.window_no, s.area, s.floor, d.price
+        ORDER BY d.price
+    </select>
+
+    <!-- 综合档口评价：无评价的档口不计入，避免 0 分噪点 -->
+    <select id="selectStallScatter" resultType="com.qmz.canteen.vo.StallScatterVO">
+        SELECT
+            s.id                                    AS stallId,
+            s.name                                  AS stallName,
+            s.window_no                             AS windowNo,
+            s.location                              AS location,
+            CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS stallZone,
+            s.category                              AS category,
+            s.manager_name                          AS managerName,
+            s.hygiene_score                         AS hygieneScore,
+            ROUND(AVG(r.rating), 2)                 AS avgRating,
+            COUNT(r.id)                             AS reviewCount,
+            COUNT(DISTINCT d.id)                    AS dishCount,
+            ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END) / COUNT(r.id) * 100, 2) AS goodRate
+        FROM canteen_stall s
+        INNER JOIN dish d ON d.stall_id = s.id AND d.deleted = 0 AND d.status = 1
+        INNER JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE s.deleted = 0 AND s.status = 1
+        GROUP BY s.id, s.name, s.window_no, s.location, s.area, s.floor, s.category, s.manager_name, s.hygiene_score
+        ORDER BY s.hygiene_score
+    </select>
+
+    <select id="selectDishBrief" resultType="com.qmz.canteen.vo.DishBriefVO">
+        SELECT
+            d.id                                   AS dishId,
+            d.name                                 AS dishName,
+            s.id                                   AS stallId,
+            s.name                                 AS stallName,
+            s.window_no                            AS windowNo,
+            CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS stallZone,
+            d.category                             AS category,
+            d.featured                             AS featured,
+            d.price                                AS price,
+            d.image                                AS image,
+            ROUND(AVG(r.rating), 2)                AS avgRating,
+            COUNT(r.id)                            AS reviewCount,
+            ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
+                  / NULLIF(COUNT(r.id), 0) * 100, 2) AS goodRate
+        FROM dish d
+        INNER JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0 AND s.status = 1
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.deleted = 0 AND d.status = 1
+        GROUP BY d.id, d.name, s.id, s.name, s.window_no, s.area, s.floor, d.category, d.featured, d.price
+        ORDER BY d.id
+    </select>
+
+    <select id="selectRatingDistribution" resultType="java.util.LinkedHashMap">
+        SELECT
+            SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) AS star5,
+            SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) AS star4,
+            SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) AS star3,
+            SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) AS star2,
+            SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) AS star1,
+            COUNT(*) AS total
+        FROM dish_review
+        WHERE deleted = 0 AND status = 1 AND dish_id = #{dishId}
+    </select>
+
+</mapper>

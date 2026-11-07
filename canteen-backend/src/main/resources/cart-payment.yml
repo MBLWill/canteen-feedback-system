@@ -1,0 +1,106 @@
+# 购物车与支付配置模板。
+# 标【必填】的项必须由你填写，或设置同名环境变量；${XXX:} 表示默认留空。
+# 密钥、证书、商户号只走环境变量，不要把真实值写进本文件提交到代码库。
+# 未启用支付通道时，wechat / alipay 两组可以整组不填。
+
+canteen:
+  cart:
+    # 单个购物车最多几种菜品
+    max-item-types: 20
+    # 同一菜品最多几份
+    max-quantity-per-dish: 10
+    # 购物车保留天数，0 表示长期保留；仅在使用 Redis 存储时生效
+    ttl-days: 7
+    # 加入购物车时是否检查菜品在售状态与库存
+    check-stock: true
+    # 结算时是否以数据库当前价格重算，防止菜品改价后按旧价结算
+    reprice-on-checkout: true
+    # 是否允许跨档口混装；false 时按档口拆成多笔订单（现有 dining_order 单档口结构）
+    allow-multi-stall: false
+
+  checkout:
+    # 打包费，单位元，堂食场景填 0
+    packing-fee: '0.00'
+    # 配送费，单位元
+    delivery-fee: '0.00'
+    # 满多少元免配送费，0 表示不减免
+    free-delivery-threshold: '0.00'
+    # 起送金额，低于此金额不允许结算
+    min-order-amount: '0.00'
+    # 金额小数位
+    scale: 2
+    # 舍入模式：HALF_UP / DOWN
+    rounding-mode: HALF_UP
+    # 结算币种
+    currency: CNY
+
+  order:
+    # 订单号前缀，与现有 OrderServiceImpl 的 CT 保持一致
+    no-prefix: CT
+    # 未支付订单自动关闭时间，单位分钟
+    pay-timeout-minutes: 15
+    # 同一购物车重复提交的幂等去重窗口，单位秒
+    idempotent-window-seconds: 10
+    # 支付成功是否扣减/占用库存
+    deduct-stock-on-paid: true
+
+  pay:
+    # 【必填】支付通道：mock / wechat / alipay；课程演示建议填 mock
+    channel: ${CANTEEN_PAY_CHANNEL:alipay}
+    # 是否使用沙箱环境
+    sandbox: true
+    # 【必填】支付平台异步回调可达的后端公网地址，本机联调填 http://127.0.0.1:8080；上线填域名或内网穿透地址
+    notify-base-url: ${CANTEEN_PAY_NOTIFY_BASE_URL:}
+    # 后端接收异步通知的路径，会自动拼上 context-path /api
+    notify-path: /pay/notify
+    # 【必填】支付完成后前端跳回的页面地址
+    return-url: ${CANTEEN_PAY_RETURN_URL:http://localhost:5173/my/orders}
+    # 前端轮询支付结果的间隔秒数与最大次数
+    query-interval-seconds: 2
+    query-max-times: 30
+    # 是否校验回调签名，接真实支付时必须为 true
+    verify-signature: true
+    # 回调来源 IP 白名单，逗号分隔，留空表示不限制
+    notify-ip-whitelist: ''
+    # 是否记录回调原始报文（含敏感字段，仅排障时开启）
+    log-raw-notify: false
+
+    mock:
+      # 模拟支付是否自动成功；false 时由页面上手动确认支付
+      auto-success: true
+      # 模拟支付耗时，用于演示「支付处理中」状态
+      delay-ms: 800
+
+    wechat:
+      # 【必填】公众号/小程序 AppID，微信支付商户平台获取
+      app-id: ${CANTEEN_WECHAT_APP_ID:}
+      # 【必填】商户号
+      mch-id: ${CANTEEN_WECHAT_MCH_ID:}
+      # 【必填】API v3 密钥
+      api-v3-key: ${CANTEEN_WECHAT_API_V3_KEY:}
+      # 【必填】商户证书序列号
+      serial-no: ${CANTEEN_WECHAT_SERIAL_NO:}
+      # 【必填】商户私钥文件路径，classpath: 或绝对路径
+      private-key-path: ${CANTEEN_WECHAT_PRIVATE_KEY_PATH:}
+      # 【必填】微信支付平台证书公钥路径，用于验签
+      platform-cert-path: ${CANTEEN_WECHAT_PLATFORM_CERT_PATH:}
+      # 交易类型：JSAPI / NATIVE / H5
+      trade-type: NATIVE
+
+    alipay:
+      # 【必填】开放平台应用 AppID
+      app-id: ${CANTEEN_ALIPAY_APP_ID:9021000171604126}
+      # 【必填】应用私钥，PKCS8 格式
+      private-key: ${CANTEEN_ALIPAY_PRIVATE_KEY:MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCF9vsTN5//J1qXIlMRMQMLGWD4EJmcmt/Hc4SV7s0CKkb3VILLKrR6DQ0wkz68yQoCSg6conc6BWzm6k5vWPQ57rjR5rPDa8J231hU0Ul1p/vyYOnKDUnRZH/7caDsXuRealOu+ESfpV1Pb6f//cW5TWE475vEetcY1ZJrPWIxTkScNuKLupPbM3UQ2WOXPi+TiUL03EgXnW+zFU2fuq2RgYqB1vFXhM6KVPucgxoiB2Pu7mjcnz1jE7mXTzQ+MTSVZ+EP4pNhpPL/6XsLktHzCM4s9WQtS2wGbPiFjrameHUviyOrxWeSA0B0GvLezr0lcbCzkZ2PmwBi3Xvn9lmrAgMBAAECggEAD2Z7KpRkckKl6WXqwrktrmL2gM33uscbHqSrA0l2i98sVVaDyrNYGAfUEld7CNzbp7O3xk3vAt6IzGr3JVnGibplyMuKstZ6foviba25kisDjbOSbMXmTIoPJGrFoyatfiUfBahIy0mJVo5xc75KsqiwmokBES9F9vbmZCmkViKLG/trKFYYArFOUtVWAtAoSsp+gKBOcyOwKgg8N5wk2zmuZtJioyrIOkjd0aieK1jF6oD4uU5PKrxhjwwGzI5pB3pzlg99fg5FMqUDD70BBH3g1tL18IH02Y4zpsyT4/WsWEc4ruUaARJObstvSawS0qI17L/y8i3BALWCt4puoQKBgQDy+2biHXyV9TAjvV0hskADeCj1QEEHWcQCv3KdUWKQPlMYXeUwPY8amFVc1HqurwC7ivp5O8pBnpkROb0vz4gehcU3XdH85w3IiJLJrP+36NwPi6vTwjybW8YCk/VDva+8W0sywvgzL2XwmoGAMLmgTTP4qcYFUeg4ALCh9Y9dYwKBgQCNJFzF7TbYJ53AxgHV1dUWdsD288fME1YnPFZuQWt3hwP8AuPF8RGEvuyoAYLRqQVkQKb3GCHUHLRpl1lpvRyP2L4U/Bpjl+OCPNG1N7M4bzLiN2oohw9y1Rcv8kVtuehP+HyHBqSI63j4jcMakWz3YB+GvFOoepDDaCNbTedJGQKBgQDplVjQYnxURILkuLQBIrR7IVZufjiFcnwGEDmElqpj9CY5tHoRJ/ycGnllZjYSG9ZedDpZtWq4LlkDwDfo8F7wyLRQh3bI4u3TK8fA7PhfuhFjOGgUiBNvXog6DjanyoBYWIMv51JnElezNzTrIOwx+EXP9JWSo6zTuYYUDFan9QKBgGXI2VarUSfkufExWlV5VahTj6kH+QgE0daNvs7YQsX6CjeNZfFzfey7OzOVk1/bglXgAgij0JGE+d5EFWkZxiU+ayX7AJTeDmX3skv7lTWXi5xz1gzQCaYIYiZjkwokTZKOYk+FzNYo6h5lLVRVl712BoZF/ha7/PXOfeD0d1zRAoGBALlx+V10+j6EawAEVLjMAm7vyPSCtLt0Iw4YQf2PBk+SAfJNHaLT8pe/qV6arb7NV9j3Oyy+/EqjTVmksis5cKOOHjbPDhxnYaYZodYuhvDH3LNF1BZmVMgl4zFVknw15j7QZRnSPAOvX67tLpfiiJCtALXhJL7iLjl98SpekNgC}
+      # 【必填】支付宝公钥，用于验签
+      alipay-public-key: ${CANTEEN_ALIPAY_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwFzTpZ749XFssIhON3JNrjH/2492hxZrfY1Nrn3SvKAhD9uRz1EnvVGgMJ5FGNEB6C+kLs246eOmMiTqWvartlAzr+TIyI/w1NCsmPhkM0m5WzRCiuCPGf1CzoFmqm+ye+PV1RcepIOlBcpwoIltxrI+ZCmWYjfKacdcc8N/9gWCzAHje18i6f1cAxqlPMcgCuEf071j3N2M42pJjRTzlDjK23EQ7FYdpkQzBTD2OpHogqkb0CluOV7WFrEY6jsm3RwJrV9AUVnU99NBcR/6qy8lULMFFF1rAclIxDeUx0Y0c/tZVyzRPPdV7CkJpJx9IZwbzotg/DNnq1bbQ3aAhwIDAQAB}
+      # 【必填】网关地址：沙箱 https://openapi-sandbox.dl.alipaydev.com/gateway.do，生产 https://openapi.alipay.com/gateway.do
+      gateway: ${CANTEEN_ALIPAY_GATEWAY:https://openapi-sandbox.dl.alipaydev.com/gateway.do}
+      # 签名算法
+      sign-type: RSA2
+
+  pay-job:
+    # 扫描并关闭超时未支付订单的间隔，单位秒
+    close-timeout-interval-seconds: 60
+    # 对账任务执行时间，Cron 表达式，留空表示不启用
+    reconcile-cron: ''
