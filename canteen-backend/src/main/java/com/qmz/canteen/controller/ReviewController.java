@@ -2,6 +2,7 @@ package com.qmz.canteen.controller;
 
 import com.qmz.canteen.common.PageResult;
 import com.qmz.canteen.common.Result;
+import com.qmz.canteen.dto.MerchantReviewReplyRequest;
 import com.qmz.canteen.dto.ReviewQuery;
 import com.qmz.canteen.dto.ReviewRequest;
 import com.qmz.canteen.security.UserContext;
@@ -42,6 +43,22 @@ public class ReviewController {
         Long userId = UserContext.getUserId();
         query.setUserId(userId);
         return Result.success(reviewService.pageReviews(query, userId, UserContext.isAdmin()));
+    }
+
+    /** 商家端：本档口学生评价列表（支持 rating / handled 筛选与分页） */
+    @GetMapping("/merchant")
+    public Result<PageResult<ReviewVO>> merchantPage(@Valid ReviewQuery query) {
+        Long stallId = UserContext.requireMerchant();
+        return Result.success(reviewService.pageMerchantReviews(stallId, query));
+    }
+
+    /** 商家端：回复学生评价并标记为已处理 */
+    @PutMapping("/{id}/reply")
+    public Result<Void> reply(@PathVariable @Positive(message = "评价ID不合法") Long id,
+                              @RequestBody @Valid MerchantReviewReplyRequest request) {
+        Long stallId = UserContext.requireMerchant();
+        reviewService.replyReview(id, stallId, request.getReply());
+        return Result.success();
     }
 
     @PostMapping

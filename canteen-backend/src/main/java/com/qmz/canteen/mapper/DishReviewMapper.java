@@ -14,6 +14,16 @@ public interface DishReviewMapper extends BaseMapper<DishReview> {
     IPage<ReviewVO> selectReviewPage(IPage<?> page, @Param("query") ReviewQuery query,
                                      @Param("currentUserId") Long currentUserId);
 
+    /** 商家端：分页查询本档口菜品的学生评价 */
+    IPage<ReviewVO> selectMerchantReviewPage(IPage<?> page, @Param("query") ReviewQuery query,
+                                             @Param("stallId") Long stallId);
+
+    /** 按评价ID + 档口ID 校验收属（评价对应菜品必须属于该档口） */
+    @Select("SELECT r.* FROM dish_review r "
+            + "INNER JOIN dish d ON r.dish_id = d.id AND d.deleted = 0 "
+            + "WHERE r.id = #{reviewId} AND d.stall_id = #{stallId} AND r.deleted = 0 LIMIT 1")
+    DishReview selectByIdAndStallId(@Param("reviewId") Long reviewId, @Param("stallId") Long stallId);
+
     /**
      * 查出该用户对该菜品的评价，包含已逻辑删除的记录。
      * dish_review 上 (dish_id, user_id) 是唯一键，逻辑删除的记录仍占位，

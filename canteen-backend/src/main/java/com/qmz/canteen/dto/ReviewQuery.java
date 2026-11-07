@@ -19,6 +19,7 @@ public class ReviewQuery {
     private Long stallId;
     private Long userId;
     private Integer rating;
+    private Integer handled;
     private Integer status;
     private String keyword;
 }

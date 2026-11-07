@@ -32,6 +32,15 @@ public class DishReview {
 
     private Integer status;
 
+    /** 商家回复内容 */
+    private String merchantReply;
+
+    /** 商家回复时间 */
+    private LocalDateTime merchantReplyTime;
+
+    /** 商家处理状态：0-待处理 1-已处理 */
+    private Integer handled;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

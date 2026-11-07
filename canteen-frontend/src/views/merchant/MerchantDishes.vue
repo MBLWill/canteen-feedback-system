@@ -2,13 +2,19 @@
   <div class="page-container">
     <el-card shadow="never" class="page-card">
       <template #header>
-        <div style="display: flex; justify-content: space-between; align-items: center">
+        <div class="manage-header">
           <span style="font-weight: 600">菜品管理</span>
-          <el-button type="primary" @click="openCreate">＋ 新增菜品</el-button>
+          <div class="batch-toolbar">
+            <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
+            <span class="selected-hint">已选 {{ selectedRows.length }} 项</span>
+            <el-button type="danger" plain :disabled="!selectedRows.length" :loading="batchDeleting" @click="handleBatchDelete">批量删除</el-button>
+            <el-button type="primary" @click="openCreate">＋ 新增菜品</el-button>
+          </div>
         </div>
       </template>
 
-      <el-table :data="records" border stripe v-loading="loading">
+      <el-table ref="tableRef" :data="records" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="48" />
         <el-table-column label="图片" width="70" align="center">
           <template #default="{ row }">
             <el-image v-if="row.image" :src="row.image" style="width: 44px; height: 44px; border-radius: 6px" fit="cover" />
@@ -98,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { pageDishes, createDish, updateDish, deleteDish } from '@/api/dish'
@@ -110,6 +116,22 @@ const submitting = ref(false)
 const records = ref([])
 const total = ref(0)
 const dialogVisible = ref(false)
+const tableRef = ref()
+const selectedRows = ref([])
+const batchDeleting = ref(false)
+
+const allSelected = computed({
+  get: () => records.value.length > 0 && selectedRows.value.length === records.value.length,
+  set: (val) => {
+    tableRef.value?.clearSelection()
+    if (val) records.value.forEach(row => tableRef.value?.toggleRowSelection(row, true))
+  }
+})
+const isIndeterminate = computed(() => selectedRows.value.length > 0 && selectedRows.value.length < records.value.length)
+
+function onSelectionChange(rows) {
+  selectedRows.value = rows
+}
 
 const query = reactive({ current: 1, size: 10, stallId: null })
 const form = reactive({ id: null, name: '', price: 1, category: '', description: '', image: '', status: 1, stallId: null })
@@ -126,6 +148,8 @@ async function loadData() {
     const res = await pageDishes(query)
     records.value = res.data.records || []
     total.value = res.data.total || 0
+    selectedRows.value = []
+    nextTick(() => tableRef.value?.clearSelection())
   } finally {
     loading.value = false
   }
@@ -192,10 +216,51 @@ function handleDelete(row) {
     .catch(() => {})
 }
 
+async function handleBatchDelete() {
+  const rows = selectedRows.value
+  if (!rows.length) return
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${rows.length} 项吗？删除后不可恢复`, '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  batchDeleting.value = true
+  try {
+    const results = await Promise.allSettled(rows.map(row => deleteDish(row.id)))
+    const success = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.length - success
+    if (failed) ElMessage.warning(`成功删除 ${success} 项，${failed} 项删除失败`)
+    else ElMessage.success(`成功删除 ${success} 项`)
+    await loadData()
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
 onMounted(loadData)
 </script>
 
 <style scoped>
+.manage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selected-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .img-upload-box {
   position: relative;
   width: 96px;

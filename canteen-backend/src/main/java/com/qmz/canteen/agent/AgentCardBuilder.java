@@ -8,8 +8,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 把 Agent 的工具执行结果转成前端可渲染的卡片。
@@ -24,10 +28,18 @@ public class AgentCardBuilder {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    /** 默认卡片上限，避免刷屏 */
+    private static final int DEFAULT_CARD_LIMIT = 6;
+
+    /** 「三样 / 两道 / 3个 / 2份 / 四款」这类数量说法 */
+    private static final Pattern QUANTITY = Pattern.compile(
+            "(\\d{1,2}|一|二|两|三|四|五|六|七|八|九|十)\\s*(?:样|种|个|道|份|款)");
+
     /**
+     * @param question    用户原始提问，用于解析「要几样」，解析不到默认 6
      * @param toolResults 工具名 → 该工具最后一次执行的原始结果对象
      */
-    public List<ChatItemVO> build(Map<String, Object> toolResults) {
+    public List<ChatItemVO> build(String question, Map<String, Object> toolResults) {
         List<ChatItemVO> cards = new ArrayList<>();
         if (toolResults == null || toolResults.isEmpty()) {
             return cards;
@@ -45,8 +57,62 @@ public class AgentCardBuilder {
         if (stallResult != null && cards.isEmpty()) {
             cards.addAll(fromStalls(stallResult));
         }
-        // 卡片最多 6 张，避免刷屏
-        return cards.size() > 6 ? cards.subList(0, 6) : cards;
+
+        // 按 id 去重：模型可能把同一道菜重复列在多张卡片里
+        List<ChatItemVO> unique = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (ChatItemVO card : cards) {
+            if (card.getId() != null && !seen.add(card.getId())) {
+                continue;
+            }
+            unique.add(card);
+        }
+
+        int limit = parseCardLimit(question);
+        return unique.size() > limit ? new ArrayList<>(unique.subList(0, limit)) : unique;
+    }
+
+    /** 从提问里解析想要的卡片数量；解析不到默认 6，最多不超过 6 */
+    static int parseCardLimit(String question) {
+        if (question == null || question.isBlank()) {
+            return DEFAULT_CARD_LIMIT;
+        }
+        Matcher m = QUANTITY.matcher(question);
+        if (!m.find()) {
+            return DEFAULT_CARD_LIMIT;
+        }
+        int n = chineseNumber(m.group(1));
+        if (n <= 0) {
+            return DEFAULT_CARD_LIMIT;
+        }
+        return Math.min(n, DEFAULT_CARD_LIMIT);
+    }
+
+    private static int chineseNumber(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return 0;
+        }
+        char c = raw.charAt(0);
+        if (Character.isDigit(c)) {
+            try {
+                return Integer.parseInt(raw);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return switch (c) {
+            case '一' -> 1;
+            case '二', '两' -> 2;
+            case '三' -> 3;
+            case '四' -> 4;
+            case '五' -> 5;
+            case '六' -> 6;
+            case '七' -> 7;
+            case '八' -> 8;
+            case '九' -> 9;
+            case '十' -> 10;
+            default -> 0;
+        };
     }
 
     private List<ChatItemVO> fromDishes(Object result) {
@@ -81,6 +147,7 @@ public class AgentCardBuilder {
             }
             item.setLinkLabel("查看菜品详情");
             item.setLink("/dishes/" + item.getId());
+            item.setCanAddToCart(true);
             list.add(item);
         }
         return list;
@@ -111,6 +178,7 @@ public class AgentCardBuilder {
             }
             item.setLinkLabel("去看看");
             item.setLink("/dishes/" + item.getId());
+            item.setCanAddToCart(true);
             list.add(item);
         }
         return list;

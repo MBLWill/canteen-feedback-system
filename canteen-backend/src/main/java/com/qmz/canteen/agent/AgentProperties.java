@@ -27,8 +27,8 @@ public class AgentProperties {
     /** 单次 HTTP 请求超时（毫秒） */
     private int timeoutMs = 20000;
 
-    /** 工具调用循环最大轮数，防止模型死循环 */
-    private int maxToolRounds = 3;
+    /** 工具调用循环最大轮数，防止模型死循环；多道菜分别加购需要至少 4 轮 */
+    private int maxToolRounds = 4;
 
     /** 单轮对话最多携带的历史消息条数（user+assistant 各算一条） */
     private int historyLimit = 8;

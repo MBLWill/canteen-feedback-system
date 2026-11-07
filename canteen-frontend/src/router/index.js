@@ -26,6 +26,7 @@ const routes = [
       { path: 'merchant/sales', name: 'MerchantSales', component: () => import('@/views/merchant/MerchantSales.vue'), meta: { title: '销售情况', icon: 'TrendCharts', merchant: true } },
       { path: 'merchant/dishes', name: 'MerchantDishes', component: () => import('@/views/merchant/MerchantDishes.vue'), meta: { title: '菜品管理', icon: 'Dish', merchant: true } },
       { path: 'merchant/messages', name: 'MerchantMessages', component: () => import('@/views/merchant/MerchantMessages.vue'), meta: { title: '给管理员留言', icon: 'Message', merchant: true } },
+      { path: 'merchant/reviews', name: 'MerchantReviews', component: () => import('@/views/merchant/MerchantReviews.vue'), meta: { title: '学生评价', icon: 'Star', merchant: true } },
       { path: 'feedbacks', name: 'FeedbackList', component: () => import('@/views/FeedbackList.vue'), meta: { title: '留言反馈', icon: 'ChatDotRound' } },
       { path: 'notices', name: 'NoticeList', component: () => import('@/views/NoticeList.vue'), meta: { title: '食堂公告', icon: 'Bell' } },
       { path: 'admin/banners', name: 'BannerManage', component: () => import('@/views/admin/BannerManage.vue'), meta: { title: '轮播广告', icon: 'Picture', admin: true } },
