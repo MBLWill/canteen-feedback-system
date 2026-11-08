@@ -28,13 +28,7 @@
               FROM dish_review r
               INNER JOIN dish d2 ON d2.id = r.dish_id AND d2.deleted = 0
               WHERE d2.stall_id = s.id AND r.deleted = 0 AND r.status = 1) AS avgRating,
-            (SELECT IFNULL(SUM(x.qty), 0) FROM (
-                SELECT ds.quantity AS qty FROM dish_sales ds WHERE ds.stall_id = s.id
-                UNION ALL
-                SELECT oi.quantity AS qty FROM dining_order_item oi
-                INNER JOIN dining_order o ON o.id = oi.order_id AND o.deleted = 0 AND o.pay_status = 'PAID'
-                WHERE o.stall_id = s.id AND oi.deleted = 0
-            ) x) AS salesCount
+            (SELECT IFNULL(SUM(ds.quantity), 0) FROM dish_sales ds WHERE ds.stall_id = s.id) AS salesCount
         FROM sys_user u
         LEFT JOIN canteen_stall s ON s.id = u.stall_id AND s.deleted = 0
         WHERE u.deleted = 0 AND u.role = 'MERCHANT'

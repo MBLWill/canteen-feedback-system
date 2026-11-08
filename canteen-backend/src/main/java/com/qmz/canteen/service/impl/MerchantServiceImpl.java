@@ -162,6 +162,12 @@ public class MerchantServiceImpl implements MerchantService {
         vo.setStallId(m.getStallId());
         Stall stall = stallMapper.selectById(m.getStallId());
         vo.setStallName(stall == null ? "未知档口" : stall.getName());
+        if (stall != null) {
+            vo.setManagerName(stall.getManagerName());
+            vo.setWindowNo(stall.getWindowNo());
+            vo.setCoverImage(stall.getCoverImage());
+            vo.setZone(formatZone(stall));
+        }
         vo.setContent(m.getContent());
         vo.setStatus(m.getStatus());
         vo.setStatusLabel(statusLabel(m.getStatus()));
@@ -169,6 +175,20 @@ public class MerchantServiceImpl implements MerchantService {
         vo.setReplyTime(m.getReplyTime());
         vo.setCreateTime(m.getCreateTime());
         return vo;
+    }
+
+    private static String formatZone(Stall stall) {
+        if (stall.getArea() == null) {
+            return "";
+        }
+        if ("north".equalsIgnoreCase(stall.getArea())) {
+            return "北区";
+        }
+        if ("south".equalsIgnoreCase(stall.getArea())) {
+            int floor = stall.getFloor() == null ? 1 : stall.getFloor();
+            return "南区 " + floor + " 楼";
+        }
+        return stall.getArea();
     }
 
     private static String statusLabel(Integer status) {

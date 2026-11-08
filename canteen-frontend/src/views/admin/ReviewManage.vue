@@ -1,7 +1,16 @@
 <template>
   <div class="page-container">
     <el-card shadow="never" class="page-card">
-      <template #header><span style="font-weight: 600">评价审核管理</span></template>
+      <template #header>
+        <div class="manage-header">
+          <span style="font-weight: 600">评价审核管理</span>
+          <div class="batch-toolbar">
+            <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
+            <span class="selected-hint">已选 {{ selectedRows.length }} 项</span>
+            <el-button type="danger" plain :disabled="!selectedRows.length" :loading="batchDeleting" @click="handleBatchDelete">批量删除</el-button>
+          </div>
+        </div>
+      </template>
 
       <div class="filter-bar">
         <el-input v-model="query.keyword" placeholder="搜索内容/菜品" clearable style="width: 200px" @keyup.enter="loadData" />
@@ -14,31 +23,37 @@
           <el-option label="已屏蔽" :value="2" />
         </el-select>
         <el-button type="primary" @click="loadData">查询</el-button>
-        <div class="filter-toolbar">
-          <el-checkbox v-model="allSelected" :indeterminate="isIndeterminate">全选</el-checkbox>
-          <span class="selected-hint">已选 {{ selectedRows.length }} 项</span>
-          <el-button type="danger" plain :disabled="!selectedRows.length" :loading="batchDeleting" @click="handleBatchDelete">批量删除</el-button>
-        </div>
       </div>
 
-      <el-table ref="tableRef" :data="records" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
-        <el-table-column type="selection" width="48" />
-        <el-table-column prop="dishName" label="菜品" min-width="120" />
-        <el-table-column prop="stallName" label="档口" width="120" />
-        <el-table-column prop="userName" label="评价人" width="110" />
-        <el-table-column label="评分" width="150">
-          <template #default="{ row }"><StarRating :value="row.rating" readonly /></template>
-        </el-table-column>
-        <el-table-column prop="content" label="评价内容" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="createTime" label="时间" width="170" />
-        <el-table-column label="操作" width="160" fixed="right">
-          <template #default="{ row }">
-            <el-button v-if="row.status !== 1" link type="success" @click="updateStatus(row, 1)">恢复</el-button>
-            <el-button v-else link type="warning" @click="updateStatus(row, 2)">屏蔽</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <el-empty v-if="!records.length && !loading" description="暂无评价" />
+
+      <div v-else v-loading="loading">
+        <div v-for="r in records" :key="r.id" class="review-item">
+          <el-checkbox v-model="selectedIds" :value="r.id" class="item-check" />
+          <div class="review-main">
+            <img v-if="r.avatar" :src="r.avatar" class="review-avatar" @error="onAvatarError($event)">
+            <span v-else class="review-avatar fallback">{{ (r.userName || '学').slice(0, 1) }}</span>
+            <div class="review-body">
+              <div class="review-head">
+                <span class="review-name">{{ r.userName || '学生' }}</span>
+                <span class="review-dish">{{ r.dishName }}</span>
+                <el-tag v-if="r.stallName" size="small" type="info" effect="plain">{{ r.stallName }}</el-tag>
+                <el-tag size="small" :type="statusTag(r.status)" effect="plain">{{ statusLabel(r.status) }}</el-tag>
+                <span class="review-time">{{ r.createTime }}</span>
+              </div>
+              <div class="review-content">{{ r.content || '（未填写文字评价）' }}</div>
+            </div>
+          </div>
+          <div class="review-side">
+            <StarRating :value="r.rating" readonly />
+            <div class="review-actions">
+              <el-button v-if="r.status !== 1" link type="success" @click="updateStatus(r, 1)">恢复</el-button>
+              <el-button v-else link type="warning" @click="updateStatus(r, 2)">屏蔽</el-button>
+              <el-button link type="danger" @click="handleDelete(r)">删除</el-button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div style="display: flex; justify-content: center; margin-top: 16px">
         <el-pagination
@@ -54,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StarRating from '@/components/StarRating.vue'
 import { pageReviews, deleteReview, updateReviewStatus } from '@/api/review'
@@ -62,22 +77,18 @@ import { pageReviews, deleteReview, updateReviewStatus } from '@/api/review'
 const loading = ref(false)
 const records = ref([])
 const total = ref(0)
-const tableRef = ref()
-const selectedRows = ref([])
+const selectedIds = ref([])
 const batchDeleting = ref(false)
 
 const allSelected = computed({
-  get: () => records.value.length > 0 && selectedRows.value.length === records.value.length,
+  get: () => records.value.length > 0 && selectedIds.value.length === records.value.length,
   set: (val) => {
-    tableRef.value?.clearSelection()
-    if (val) records.value.forEach(row => tableRef.value?.toggleRowSelection(row, true))
+    selectedIds.value = val ? records.value.map(r => r.id) : []
   }
 })
-const isIndeterminate = computed(() => selectedRows.value.length > 0 && selectedRows.value.length < records.value.length)
+const isIndeterminate = computed(() => selectedIds.value.length > 0 && selectedIds.value.length < records.value.length)
 
-function onSelectionChange(rows) {
-  selectedRows.value = rows
-}
+const selectedRows = computed(() => records.value.filter(r => selectedIds.value.includes(r.id)))
 
 const query = reactive({ current: 1, size: 10, keyword: '', rating: undefined, status: undefined })
 
@@ -87,10 +98,28 @@ async function loadData() {
     const res = await pageReviews(query)
     records.value = res.data.records
     total.value = res.data.total
-    selectedRows.value = []
-    nextTick(() => tableRef.value?.clearSelection())
+    selectedIds.value = []
   } finally {
     loading.value = false
+  }
+}
+
+function statusLabel(status) {
+  return { 0: '待审核', 1: '已发布', 2: '已屏蔽' }[status] || '未知'
+}
+
+function statusTag(status) {
+  return { 0: 'warning', 1: 'success', 2: 'danger' }[status] || 'info'
+}
+
+function onAvatarError(e) {
+  e.target.style.display = 'none'
+  const parent = e.target.parentElement
+  if (!parent.querySelector('.avatar-fallback')) {
+    const span = document.createElement('span')
+    span.className = 'avatar-fallback'
+    span.textContent = '学'
+    parent.appendChild(span)
   }
 }
 
@@ -135,8 +164,15 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.filter-toolbar {
-  margin-left: auto;
+.manage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -146,5 +182,112 @@ onMounted(loadData)
 .selected-hint {
   font-size: 12px;
   color: var(--text-3);
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.review-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.item-check {
+  flex-shrink: 0;
+  margin-top: 12px;
+}
+
+.review-main {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.review-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.review-avatar.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.review-avatar .avatar-fallback {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.review-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.review-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.review-dish {
+  font-size: 12px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.review-time {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-left: auto;
+}
+
+.review-content {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-1);
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.review-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.review-actions {
+  display: flex;
+  align-items: center;
 }
 </style>

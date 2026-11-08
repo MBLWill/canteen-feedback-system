@@ -37,17 +37,19 @@
         <div class="feedback-row">
           <el-checkbox v-model="selectedIds" :value="item.id" class="item-check" />
           <div class="feedback-main">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start">
-              <div>
-                <span style="font-size: 15px; font-weight: 600">{{ item.title }}</span>
-                <el-tag size="small" :type="typeTag(item.type)" effect="plain" style="margin-left: 8px">
-                  {{ item.typeLabel }}
-                </el-tag>
-                <el-tag size="small" :type="statusTag(item.status)" style="margin-left: 6px">
-                  {{ item.statusLabel }}
-                </el-tag>
+            <div class="feedback-head">
+              <div class="feedback-head-left">
+                <div class="feedback-avatar">
+                  <img v-if="item.avatar" :src="item.avatar" :alt="item.userName" @error="onAvatarError($event)" />
+                  <span v-else>{{ (item.userName || '客').slice(0, 1) }}</span>
+                </div>
+                <div class="feedback-head-info">
+                  <span class="feedback-title">{{ item.title }}</span>
+                  <el-tag size="small" :type="typeTag(item.type)" effect="plain">{{ item.typeLabel }}</el-tag>
+                  <el-tag size="small" :type="statusTag(item.status)">{{ item.statusLabel }}</el-tag>
+                </div>
               </div>
-              <div class="muted" style="font-size: 12px">
+              <div class="muted" style="font-size: 12px; flex-shrink: 0">
                 {{ item.userName }} · {{ item.stallName || '未指定档口' }} · {{ item.createTime }}
               </div>
             </div>
@@ -207,6 +209,17 @@ function statusTag(status) {
   return { PENDING: 'warning', PROCESSING: 'primary', RESOLVED: 'success' }[status] || 'info'
 }
 
+function onAvatarError(e) {
+  e.target.style.display = 'none'
+  const parent = e.target.parentElement
+  if (!parent.querySelector('.avatar-fallback')) {
+    const span = document.createElement('span')
+    span.className = 'avatar-fallback'
+    span.textContent = '客'
+    parent.appendChild(span)
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -335,6 +348,59 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+}
+
+.feedback-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.feedback-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.feedback-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.feedback-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.feedback-avatar .avatar-fallback {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.feedback-head-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.feedback-title {
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .feedback-main {

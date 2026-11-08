@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container adaptive-page">
     <el-card shadow="never" class="page-card">
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center">
@@ -21,6 +21,7 @@
         </div>
       </div>
 
+      <div ref="wrapRef" class="adaptive-table">
       <el-table ref="tableRef" :data="records" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="48" />
         <el-table-column label="图" width="70" align="center">
@@ -56,8 +57,9 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div style="display: flex; justify-content: center; margin-top: 16px">
+      <div class="adaptive-pager">
         <el-pagination
           v-model:current-page="query.current"
           v-model:page-size="query.size"
@@ -115,12 +117,14 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageDishes, listCategories, createDish, updateDish, deleteDish } from '@/api/dish'
 import { listStalls } from '@/api/stall'
+import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
 
 const loading = ref(false)
 const submitting = ref(false)
 const records = ref([])
 const total = ref(0)
 const tableRef = ref()
+const wrapRef = ref(null)
 const selectedRows = ref([])
 const batchDeleting = ref(false)
 
@@ -181,6 +185,8 @@ async function loadData() {
     loading.value = false
   }
 }
+
+const { bind } = useAdaptivePaging(query, loadData)
 
 function openCreate() {
   Object.assign(form, { id: null, stallId: undefined, name: '', price: 0, category: '荤菜', image: '', description: '', status: 1 })
@@ -249,7 +255,9 @@ async function handleBatchDelete() {
 onMounted(async () => {
   const res = await listStalls()
   stalls.value = res.data
-  loadData()
+  await loadData()
+  await nextTick()
+  bind(wrapRef.value)
 })
 </script>
 

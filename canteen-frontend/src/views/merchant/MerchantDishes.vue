@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container adaptive-page">
     <el-card shadow="never" class="page-card">
       <template #header>
         <div class="manage-header">
@@ -13,6 +13,7 @@
         </div>
       </template>
 
+      <div ref="wrapRef" class="adaptive-table">
       <el-table ref="tableRef" :data="records" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="48" />
         <el-table-column label="图片" width="70" align="center">
@@ -44,16 +45,15 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div style="display: flex; justify-content: center; margin-top: 12px">
+      <div class="adaptive-pager">
         <el-pagination
           v-model:current-page="query.current"
           v-model:page-size="query.size"
           :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
+          layout="total, prev, pager, next"
           @current-change="loadData"
-          @size-change="loadData"
         />
       </div>
     </el-card>
@@ -109,6 +109,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { pageDishes, createDish, updateDish, deleteDish } from '@/api/dish'
 import { uploadImage } from '@/api/sales'
+import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
 
 const userStore = useUserStore()
 const loading = ref(false)
@@ -117,6 +118,7 @@ const records = ref([])
 const total = ref(0)
 const dialogVisible = ref(false)
 const tableRef = ref()
+const wrapRef = ref(null)
 const selectedRows = ref([])
 const batchDeleting = ref(false)
 
@@ -154,6 +156,8 @@ async function loadData() {
     loading.value = false
   }
 }
+
+const { bind } = useAdaptivePaging(query, loadData)
 
 function openCreate() {
   Object.assign(form, { id: null, name: '', price: 1, category: '', description: '', image: '', status: 1, stallId: userStore.userInfo?.stallId })
@@ -237,7 +241,11 @@ async function handleBatchDelete() {
   }
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  await loadData()
+  await nextTick()
+  bind(wrapRef.value)
+})
 </script>
 
 <style scoped>

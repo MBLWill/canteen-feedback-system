@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container adaptive-page">
     <el-card shadow="never" class="page-card">
       <template #header><span style="font-weight: 600">留言受理与回复</span></template>
 
@@ -24,6 +24,7 @@
         </div>
       </div>
 
+      <div ref="wrapRef" class="adaptive-table">
       <el-table ref="tableRef" :data="records" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="48" />
         <el-table-column prop="title" label="标题" min-width="180" />
@@ -59,8 +60,9 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div style="display: flex; justify-content: center; margin-top: 16px">
+      <div class="adaptive-pager">
         <el-pagination
           v-model:current-page="query.current"
           v-model:page-size="query.size"
@@ -100,12 +102,14 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageFeedbacks, replyFeedback, deleteFeedback } from '@/api/feedback'
 import { listStalls } from '@/api/stall'
+import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
 
 const loading = ref(false)
 const submitting = ref(false)
 const records = ref([])
 const total = ref(0)
 const tableRef = ref()
+const wrapRef = ref(null)
 const selectedRows = ref([])
 const batchDeleting = ref(false)
 
@@ -140,6 +144,8 @@ async function loadData() {
     loading.value = false
   }
 }
+
+const { bind } = useAdaptivePaging(query, loadData)
 
 function openReply(row) {
   current.value = row
@@ -211,7 +217,9 @@ function statusTag(status) {
 onMounted(async () => {
   const res = await listStalls()
   stalls.value = res.data
-  loadData()
+  await loadData()
+  await nextTick()
+  bind(wrapRef.value)
 })
 </script>
 

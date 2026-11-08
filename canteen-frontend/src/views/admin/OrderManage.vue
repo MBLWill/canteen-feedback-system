@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container adaptive-page">
     <el-card shadow="never" class="page-card">
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center">
@@ -21,6 +21,7 @@
         <el-button type="primary" @click="loadData">查询</el-button>
       </div>
 
+      <div ref="wrapRef" class="adaptive-table">
       <el-table :data="records" border stripe v-loading="loading">
         <el-table-column type="expand">
           <template #default="{ row }">
@@ -66,8 +67,9 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div style="display: flex; justify-content: center; margin-top: 16px">
+      <div class="adaptive-pager">
         <el-pagination
           v-model:current-page="query.current"
           v-model:page-size="query.size"
@@ -81,15 +83,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { pageOrders, updateOrderStatus } from '@/api/order'
 import { listStalls } from '@/api/stall'
+import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
 
 const loading = ref(false)
 const records = ref([])
 const total = ref(0)
 const stalls = ref([])
+const wrapRef = ref(null)
 
 const query = reactive({ current: 1, size: 10, status: undefined, stallId: undefined, keyword: '' })
 
@@ -116,6 +120,8 @@ async function loadData() {
   }
 }
 
+const { bind } = useAdaptivePaging(query, loadData)
+
 async function changeStatus(row, status) {
   await updateOrderStatus(row.id, status)
   ElMessage.success(status === 'DONE' ? '已标记为取餐完成' : '订单已取消')
@@ -125,7 +131,9 @@ async function changeStatus(row, status) {
 onMounted(async () => {
   const res = await listStalls()
   stalls.value = res.data
-  loadData()
+  await loadData()
+  await nextTick()
+  bind(wrapRef.value)
 })
 </script>
 

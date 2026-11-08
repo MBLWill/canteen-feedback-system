@@ -10,13 +10,7 @@
         COUNT(DISTINCT r.id) AS review_count,
         IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
                / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS good_rate,
-        (SELECT IFNULL(SUM(x.qty), 0) FROM (
-            SELECT ds.quantity AS qty FROM dish_sales ds WHERE ds.dish_id = d.id
-            UNION ALL
-            SELECT oi.quantity AS qty FROM dining_order_item oi
-            INNER JOIN dining_order o ON o.id = oi.order_id AND o.deleted = 0 AND o.pay_status = 'PAID'
-            WHERE oi.dish_id = d.id AND oi.deleted = 0
-        ) x) AS sales_count
+        (SELECT IFNULL(SUM(ds.quantity), 0) FROM dish_sales ds WHERE ds.dish_id = d.id) AS sales_count
     </sql>
 
     <sql id="groupByDish">
@@ -114,13 +108,7 @@
         COUNT(DISTINCT r.id) AS review_count,
         IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
                / NULLIF(COUNT(DISTINCT r.id), 0) * 100, 2), 0) AS good_rate,
-        (SELECT IFNULL(SUM(x.qty), 0) FROM (
-            SELECT ds.quantity AS qty FROM dish_sales ds WHERE ds.dish_id = d.id
-            UNION ALL
-            SELECT oi.quantity AS qty FROM dining_order_item oi
-            INNER JOIN dining_order o ON o.id = oi.order_id AND o.deleted = 0 AND o.pay_status = 'PAID'
-            WHERE oi.dish_id = d.id AND oi.deleted = 0
-        ) x) AS sales_count,
+        (SELECT IFNULL(SUM(ds.quantity), 0) FROM dish_sales ds WHERE ds.dish_id = d.id) AS sales_count,
         0 AS favorited
         FROM dish d
         LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0

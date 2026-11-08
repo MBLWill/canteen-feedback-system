@@ -1,5 +1,5 @@
 <template>
-  <div v-if="slides.length" class="banner-block">
+  <div v-if="slides.length" class="banner-block" :class="{ 'banner-block--hero': variant === 'hero' }">
     <div class="banner-wrap">
       <div
         v-for="(s, i) in slides"
@@ -46,6 +46,14 @@ import { listBanners } from '@/api/banner'
 const router = useRouter()
 const activeIndex = ref(0)
 let timer = null
+
+/**
+ * variant: 'normal'（默认，首页看板等紧凑横幅）| 'hero'（美食广场等大屏主视觉）
+ * 素材 banner*.jpg 为 1600×460，hero 模式按原始比例铺满，避免被裁成一条。
+ */
+defineProps({
+  variant: { type: String, default: 'normal' }
+})
 
 const INTERVAL = 5000
 
@@ -133,15 +141,15 @@ onBeforeUnmount(stopTimer)
 
 <style scoped>
 .banner-block {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .banner-wrap {
   position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(255, 140, 40, 0.16);
-  aspect-ratio: 9.4 / 1;
+  box-shadow: 0 4px 14px rgba(255, 140, 40, 0.14);
+  height: 140px;
   background: #fff7ef;
 }
 
@@ -238,7 +246,22 @@ onBeforeUnmount(stopTimer)
 
 @media (max-width: 1280px) {
   .banner-wrap {
-    aspect-ratio: 7 / 1;
+    height: 120px;
   }
+}
+
+/* 美食广场主视觉：按素材原始比例（1600:460）适配，独立于首页的紧凑横幅 */
+.banner-block--hero {
+  margin-bottom: 0;
+}
+.banner-block--hero .banner-wrap {
+  height: auto;
+  aspect-ratio: 1600 / 460;
+}
+.banner-block--hero .banner-dots {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
 }
 </style>

@@ -17,4 +17,8 @@ public class DishRankVO {
     private Double avgRating;
     private Long reviewCount;
     private Double goodRate;
+    /** 单价 */
+    private java.math.BigDecimal price;
+    /** 累计销量（份） */
+    private Long salesCount;
 }

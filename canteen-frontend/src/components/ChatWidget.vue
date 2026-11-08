@@ -9,9 +9,7 @@
       >
         <div class="chat-head" @pointerdown="onHeadDown">
           <div class="head-avatar">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" fill="#fff" stroke="none"/>
-            </svg>
+            <img :src="avatarByState" class="head-avatar-img" alt="助手">
           </div>
           <div class="head-text">
             <div class="head-title">{{ assistantTitle }}</div>
@@ -47,9 +45,7 @@
         <div ref="bodyEl" class="chat-body">
           <div v-if="!messages.length" class="chat-welcome">
             <div class="welcome-icon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--brand)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-              </svg>
+              <img :src="avatarByState" class="welcome-icon-img" alt="助手">
             </div>
             <p class="welcome-title">{{ welcomeTitle }}</p>
             <p class="welcome-sub">{{ welcomeSub }}</p>
@@ -105,6 +101,8 @@
             class="chat-input-field"
             :placeholder="inputPlaceholder"
             maxlength="200"
+            @focus="onInputFocus"
+            @blur="onInputBlur"
             @keyup.enter="send(draft)"
           >
           <button class="send-btn" :disabled="loading" @click="send(draft)">
@@ -135,12 +133,12 @@
       class="chat-fab"
       :style="fabStyle"
       :title="`打开${assistantTitle}`"
+      @mouseenter="onFabHover"
+      @mouseleave="onFabLeave"
+      @pointerdown="onFabDown"
       @click="openPanel"
     >
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-        <path d="M8 10h8M8 14h5"/>
-      </svg>
+      <img :src="avatarByState" class="fab-img" alt="助手">
       <span class="fab-pulse"></span>
     </button>
   </div>
@@ -184,6 +182,30 @@ const welcomeSub = computed(() => (isMerchant.value
 const inputPlaceholder = computed(() => (isMerchant.value
   ? '输入经营问题，比如「菜品在哪里添加」'
   : '输入菜名或问题…'))
+
+/** 助手机器人表情：空闲 happy / 悬停 wink / 点击 surprise / 输入 doubt / 思考 think / 回答 wave(交替) / 异常 speechless */
+const assistantMood = ref('happy')
+const waveFlip = ref(false)
+const avatarByState = computed(() => {
+  const map = {
+    happy: '/ui/assistant/happy.png',
+    wink: '/ui/assistant/wink.png',
+    surprise: '/ui/assistant/surprise.png',
+    doubt: '/ui/assistant/doubt.png',
+    think: '/ui/assistant/think.png',
+    wave: '/ui/assistant/wave1.png',
+    wave2: '/ui/assistant/wave2.png',
+    speechless: '/ui/assistant/speechless.png'
+  }
+  return map[assistantMood.value] || map.happy
+})
+
+/* ---------------- 表情交互 ---------------- */
+function onFabHover() { if (!open.value) assistantMood.value = 'wink' }
+function onFabLeave() { if (!open.value) assistantMood.value = 'happy' }
+function onFabDown() { assistantMood.value = 'surprise' }
+function onInputFocus() { if (!loading.value && assistantMood.value === 'happy') assistantMood.value = 'doubt' }
+function onInputBlur() { if (assistantMood.value === 'doubt') assistantMood.value = 'happy' }
 
 const STUDENT_SUGGESTIONS = ['今天有什么推荐', '哪些菜要避雷', '怎么投诉某个窗口', '食堂几点营业']
 const MERCHANT_SUGGESTIONS = ['菜品在哪里添加', '学生下单后怎么处理', '怎么查看销售数据', '怎么绑定邮箱', '怎么给管理员留言']
@@ -303,6 +325,7 @@ onMounted(async () => {
   vp.h = window.innerHeight
   placePanel()
   window.addEventListener('resize', onResize)
+  window.addEventListener('canteen:assistant-ask', onExternalAsk)
   try {
     const res = await getChatSuggestions()
     suggestions.value = (res.data && res.data.length)
@@ -323,8 +346,18 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('pointermove', onHeadDrag)
   window.removeEventListener('pointerup', onHeadUp)
+  window.removeEventListener('canteen:assistant-ask', onExternalAsk)
   stopThinking()
 })
+
+/** 来自美食探索页快捷提问：唤起面板并发送问题 */
+function onExternalAsk(e) {
+  const q = e.detail
+  if (!q) return
+  openPanel()
+  // 等面板展开后再发送，确保消息可见
+  nextTick(() => send(q))
+}
 
 /* ---------------- 面板操作 ---------------- */
 
@@ -400,6 +433,7 @@ async function send(text) {
   draft.value = ''
   messages.value.push({ role: 'user', text: question })
   loading.value = true
+  assistantMood.value = 'think'
   startThinking()
   scrollBottom()
 
@@ -421,6 +455,9 @@ async function send(text) {
           loading.value = false
           stopThinking()
         }
+        // 回答过程中两只挥手表情交替，更活泼
+        assistantMood.value = waveFlip.value ? 'wave2' : 'wave'
+        waveFlip.value = !waveFlip.value
         botMsg.answer.text += piece
         scrollBottom()
       },
@@ -438,6 +475,7 @@ async function send(text) {
     })
   } catch (e) {
     botMsg.streaming = false
+    assistantMood.value = 'speechless'
     if (botMsg.answer.text) {
       // 已经流出一部分，保留内容只提示中断
       botMsg.answer.text += '\n（回答中断，请重试）'
@@ -462,6 +500,7 @@ async function send(text) {
     if (!botMsg.answer.text) {
       botMsg.answer.text = '暂时没能回答，稍后再试试'
     }
+    assistantMood.value = 'happy'
     scrollBottom()
   }
 }
@@ -501,8 +540,8 @@ async function scrollBottom() {
 /* 悬浮球 */
 .chat-fab {
   position: absolute;
-  width: 58px;
-  height: 58px;
+  width: 62px;
+  height: 62px;
   border: none;
   border-radius: 50%;
   background: linear-gradient(140deg, #ff9a3d 0%, var(--brand) 45%, var(--brand-dark) 100%);
@@ -513,6 +552,14 @@ async function scrollBottom() {
   box-shadow: 0 10px 26px rgba(255, 122, 26, 0.38), 0 2px 6px rgba(0, 0, 0, 0.1);
   transition: transform .2s ease, box-shadow .2s ease;
   z-index: 3;
+  overflow: visible;
+}
+.fab-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 50%;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
 }
 .chat-fab:hover {
   transform: scale(1.06);
@@ -561,14 +608,20 @@ async function scrollBottom() {
 .panel-docked .chat-head { cursor: default; }
 
 .head-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: linear-gradient(140deg, #ff9a3d, var(--brand-dark));
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #fff3e8, #ffe0c2);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.head-avatar-img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
 }
 .head-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
 .head-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -608,14 +661,20 @@ async function scrollBottom() {
 }
 .chat-welcome { text-align: center; padding-top: 22px; }
 .welcome-icon {
-  width: 52px;
-  height: 52px;
+  width: 76px;
+  height: 76px;
   margin: 0 auto 10px;
-  border-radius: 16px;
-  background: var(--brand-soft);
+  border-radius: 50%;
+  background: linear-gradient(140deg, #fff3e8, #ffe0c2);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+.welcome-icon-img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
 }
 .welcome-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-1); }
 .welcome-sub { margin: 4px 0 0; font-size: 12px; color: var(--text-3); }

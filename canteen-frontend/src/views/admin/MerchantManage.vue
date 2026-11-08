@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container adaptive-page">
     <el-card shadow="never" class="page-card">
       <div class="filter-bar">
         <el-input
@@ -19,6 +19,7 @@
         <span class="muted total-hint">共 {{ total }} 个商家账号</span>
       </div>
 
+      <div ref="wrapRef" class="adaptive-table">
       <el-table v-loading="loading" :data="records" border stripe row-key="id">
         <el-table-column prop="username" label="商家账号" width="120" />
         <el-table-column prop="realName" label="姓名" width="100" />
@@ -74,17 +75,16 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pager">
+      <div class="adaptive-pager">
         <el-pagination
           v-model:current-page="query.current"
           v-model:page-size="query.size"
           :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
+          layout="total, prev, pager, next"
           background
           @current-change="loadData"
-          @size-change="loadData"
         />
       </div>
     </el-card>
@@ -92,14 +92,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageMerchants, updateUserStatus } from '@/api/user'
+import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
 
 const loading = ref(false)
 const switchingId = ref(null)
 const records = ref([])
 const total = ref(0)
+const wrapRef = ref(null)
 
 const query = reactive({
   current: 1,
@@ -123,6 +125,8 @@ async function loadData() {
     loading.value = false
   }
 }
+
+const { bind } = useAdaptivePaging(query, loadData)
 
 function resetQuery() {
   query.keyword = ''
@@ -153,7 +157,11 @@ function formatTime(value) {
   return String(value).replace('T', ' ').slice(0, 16)
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  await loadData()
+  await nextTick()
+  bind(wrapRef.value)
+})
 </script>
 
 <style scoped>
@@ -180,11 +188,5 @@ onMounted(loadData)
 .rating {
   color: #e35f00;
   font-weight: 700;
-}
-
-.pager {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
 }
 </style>

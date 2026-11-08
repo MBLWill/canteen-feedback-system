@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container adaptive-page">
     <el-card shadow="never" class="page-card">
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center">
@@ -22,6 +22,7 @@
         </div>
       </div>
 
+      <div ref="wrapRef" class="adaptive-table">
       <el-table ref="tableRef" :data="list" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="48" />
         <el-table-column label="分类" width="120">
@@ -46,8 +47,9 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div style="margin-top: 14px; display: flex; justify-content: flex-end">
+      <div class="adaptive-pager">
         <el-pagination background layout="total, prev, pager, next" :total="total"
                        :current-page="query.current" :page-size="query.size" @current-change="changePage" />
       </div>
@@ -97,6 +99,7 @@ import { onMounted, reactive, ref, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createFaq, deleteFaq, getFaqs, updateFaq } from '@/api/chat'
+import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
 
 const route = useRoute()
 const categories = [
@@ -112,6 +115,7 @@ const list = ref([])
 const total = ref(0)
 const loading = ref(false)
 const tableRef = ref()
+const wrapRef = ref(null)
 const selectedRows = ref([])
 const batchDeleting = ref(false)
 
@@ -164,6 +168,8 @@ async function loadData() {
     loading.value = false
   }
 }
+
+const { bind } = useAdaptivePaging(query, loadData)
 
 function changePage(page) {
   query.current = page
@@ -227,8 +233,10 @@ async function handleBatchDelete() {
   }
 }
 
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  await loadData()
+  await nextTick()
+  bind(wrapRef.value)
   // 从问答日志页“补录为 FAQ”跳转过来时，预填未命中的提问
   const preset = route.query.question
   if (preset) {

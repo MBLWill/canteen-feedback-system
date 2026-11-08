@@ -271,6 +271,52 @@ a {
   --el-pagination-border-radius: 8px;
 }
 
+/* ---------- 高度自适应分页：表格铺满窗口、每页条数随屏幕增减 ---------- */
+.adaptive-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.adaptive-page > .el-card,
+.adaptive-page > .page-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.adaptive-page .el-card__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.adaptive-table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.adaptive-table .el-table__header th.el-table__cell {
+  height: 46px;
+}
+
+.adaptive-table .el-table__body td.el-table__cell {
+  height: 50px;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.adaptive-pager {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+
 .el-empty__description p {
   color: var(--text-3);
 }
@@ -424,18 +470,17 @@ a {
   line-height: 1.9;
 }
 
-/* ---------- 页面切换动画 ---------- */
+/* ---------- 页面切换动画（去掉 out-in，改为并发过渡，几乎无感知延迟） ---------- */
 .page-fade-enter-active {
-  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 .page-fade-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition: opacity 0.08s ease;
 }
 .page-fade-enter-from {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(6px);
 }
 .page-fade-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
 }

@@ -156,7 +156,7 @@
 
       <el-main class="app-main">
         <router-view v-slot="{ Component }">
-          <transition name="page-fade" mode="out-in">
+          <transition name="page-fade">
             <keep-alive>
               <component :is="Component" />
             </keep-alive>
