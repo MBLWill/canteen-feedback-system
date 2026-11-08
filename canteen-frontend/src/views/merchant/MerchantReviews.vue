@@ -229,8 +229,7 @@ onMounted(loadData)
 
 <style scoped>
 .review-page {
-  max-width: 1100px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .tab-card { margin-bottom: 16px; }

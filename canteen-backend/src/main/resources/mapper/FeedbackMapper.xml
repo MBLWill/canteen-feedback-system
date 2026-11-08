@@ -7,6 +7,7 @@
             f.id,
             f.user_id AS userId,
             IFNULL(u.real_name, '已注销用户') AS userName,
+            IFNULL(u.avatar, '') AS avatar,
             f.stall_id AS stallId,
             s.name AS stallName,
             f.title,

@@ -17,25 +17,28 @@
       <div v-for="r in records" :key="r.id" class="review-item">
         <div class="review-row">
           <el-checkbox v-model="selectedIds" :value="r.id" class="item-check" />
-          <el-row :gutter="12" align="middle" style="flex: 1">
-            <el-col :span="16">
-              <div style="font-weight: 600; margin-bottom: 4px">
-                {{ r.dishName }}
-                <el-tag size="small" type="info" effect="plain">{{ r.stallName }}</el-tag>
-              </div>
-              <div class="muted" style="font-size: 12px">{{ r.createTime }}</div>
-              <div style="margin-top: 6px">{{ r.content || '（未填写文字评价）' }}</div>
-            </el-col>
-            <el-col :span="4">
-              <StarRating :value="r.rating" readonly />
-            </el-col>
-            <el-col :span="4" style="text-align: right">
+          <!-- 菜品图片 -->
+          <div class="review-thumb">
+            <img v-if="r.dishImage" :src="r.dishImage" :alt="r.dishName" loading="lazy" @error="onImgError($event, r)" />
+            <span v-else class="review-initial">{{ (r.dishName || '菜').slice(0, 1) }}</span>
+          </div>
+          <div class="review-main">
+            <div class="review-dish-row">
+              <span class="review-dish-name">{{ r.dishName }}</span>
+              <el-tag size="small" type="info" effect="plain">{{ r.stallName }}</el-tag>
+            </div>
+            <div class="muted" style="font-size: 12px">{{ r.createTime }}</div>
+            <div style="margin-top: 6px">{{ r.content || '（未填写文字评价）' }}</div>
+          </div>
+          <div class="review-right">
+            <StarRating :value="r.rating" readonly />
+            <div class="review-actions">
               <el-tag v-if="r.status === 2" type="danger" size="small">已被屏蔽</el-tag>
               <el-tag v-else-if="r.status === 0" type="warning" size="small">待审核</el-tag>
               <el-tag v-else type="success" size="small">已发布</el-tag>
               <el-button link type="danger" style="margin-left: 8px" @click="handleDelete(r)">删除</el-button>
-            </el-col>
-          </el-row>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -84,6 +87,11 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+function onImgError(e, r) {
+  e.target.style.display = 'none'
+  e.target.nextElementSibling && (e.target.nextElementSibling.style.display = 'flex')
 }
 
 function handleDelete(row) {
@@ -144,11 +152,67 @@ onMounted(loadData)
 .review-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 12px;
 }
 
 .item-check {
   flex-shrink: 0;
+  margin-top: 14px;
+}
+
+.review-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ffd0a6, #ff9d5c);
+}
+
+.review-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.review-initial {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.review-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-dish-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.review-dish-name {
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.review-right {
+  flex-shrink: 0;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.review-actions {
+  display: flex;
+  align-items: center;
 }
 
 .review-item {

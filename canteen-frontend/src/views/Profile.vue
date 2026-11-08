@@ -144,28 +144,48 @@
       <!-- 我的证照（商家） -->
       <el-card v-show="activeMenu === 'cert'" shadow="never" class="page-card">
         <template #header><span style="font-weight: 600">我的证照</span></template>
-        <el-row :gutter="24">
-          <el-col :span="12">
+        <div class="cert-grid">
+          <div class="cert-item">
             <div class="cert-title">健康证</div>
             <el-upload :show-file-list="false" :http-request="opt => doUploadCert(opt, 'health')" accept="image/*">
               <div class="cert-box">
                 <img v-if="cert.healthCertUrl" :src="cert.healthCertUrl" class="cert-img" />
-                <div v-else class="cert-empty"><span style="font-size: 26px">＋</span><span>上传健康证</span></div>
+                <div v-else class="cert-empty">
+                  <div class="cert-upload-icon">
+                    <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </div>
+                  <span class="cert-upload-text">上传健康证</span>
+                  <span class="cert-upload-hint">支持 JPG / PNG，建议清晰完整</span>
+                </div>
                 <div class="cert-mask">点击更换</div>
               </div>
             </el-upload>
-          </el-col>
-          <el-col :span="12">
+          </div>
+          <div class="cert-item">
             <div class="cert-title">营业执照</div>
             <el-upload :show-file-list="false" :http-request="opt => doUploadCert(opt, 'license')" accept="image/*">
               <div class="cert-box">
                 <img v-if="cert.licenseUrl" :src="cert.licenseUrl" class="cert-img" />
-                <div v-else class="cert-empty"><span style="font-size: 26px">＋</span><span>上传营业执照</span></div>
+                <div v-else class="cert-empty">
+                  <div class="cert-upload-icon">
+                    <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </div>
+                  <span class="cert-upload-text">上传营业执照</span>
+                  <span class="cert-upload-hint">支持 JPG / PNG，建议清晰完整</span>
+                </div>
                 <div class="cert-mask">点击更换</div>
               </div>
             </el-upload>
-          </el-col>
-        </el-row>
+          </div>
+        </div>
       </el-card>
     </div>
 
@@ -410,8 +430,7 @@ onMounted(() => {
 
 <style scoped>
 .profile-page {
-  max-width: 960px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 /* 顶部信息卡 */
@@ -671,11 +690,48 @@ onMounted(() => {
 .sec-desc { font-size: 12px; color: var(--text-3); margin-top: 4px; }
 .sec-actions { display: flex; align-items: center; gap: 8px; }
 
-.cert-title { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
-.cert-box { position: relative; width: 100%; height: 140px; border-radius: 10px; overflow: hidden; cursor: pointer; border: 1px solid var(--border); }
+.cert-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.cert-item {
+  min-width: 0;
+}
+
+.cert-title { font-size: 14px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; }
+.cert-box { position: relative; width: 100%; height: 200px; border-radius: 12px; overflow: hidden; cursor: pointer; border: 1px solid var(--border); background: var(--bg); transition: border-color .2s ease, box-shadow .2s ease; }
+.cert-box:hover { border-color: var(--brand); box-shadow: var(--shadow-sm); }
 .cert-img { width: 100%; height: 100%; object-fit: cover; }
-.cert-empty { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-3); border: 1px dashed var(--border); }
-.cert-mask { position: absolute; bottom: 0; left: 0; right: 0; font-size: 12px; color: #fff; background: rgba(0, 0, 0, 0.5); text-align: center; padding: 4px 0; }
+.cert-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-3);
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  transition: border-color .2s ease;
+}
+.cert-box:hover .cert-empty { border-color: var(--brand); }
+.cert-upload-icon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cert-upload-text { font-size: 15px; font-weight: 600; color: var(--text-2); }
+.cert-upload-hint { font-size: 12px; color: var(--text-3); }
+.cert-mask { position: absolute; bottom: 0; left: 0; right: 0; font-size: 12px; color: #fff; background: rgba(0, 0, 0, 0.5); text-align: center; padding: 5px 0; opacity: 0; transition: opacity .2s ease; }
+.cert-box:hover .cert-mask { opacity: 1; }
 
 /* 响应式 */
 @media (max-width: 900px) {

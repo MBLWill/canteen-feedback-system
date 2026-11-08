@@ -27,4 +27,47 @@
         ORDER BY sale_date ASC
     </select>
 
+    <select id="selectDailyQuantity" resultType="com.qmz.canteen.vo.SalesDailyVO">
+        SELECT sale_date AS saleDate,
+               SUM(quantity) AS quantity,
+               SUM(amount) AS amount
+        FROM dish_sales
+        WHERE stall_id = #{stallId}
+          AND sale_date &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        GROUP BY sale_date
+        ORDER BY sale_date ASC
+    </select>
+
+    <select id="selectTrendDishes" resultType="com.qmz.canteen.vo.TrendDishVO">
+        SELECT
+            d.id AS dishId,
+            d.name AS dishName,
+            d.image AS dishImage,
+            d.price AS price,
+            COALESCE(rec.qty, 0) AS recentQty,
+            COALESCE(prev.qty, 0) AS previousQty
+        FROM dish d
+        LEFT JOIN (
+            SELECT dish_id, SUM(quantity) AS qty
+            FROM dish_sales
+            WHERE stall_id = #{stallId}
+              AND sale_date &gt;= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            GROUP BY dish_id
+        ) rec ON rec.dish_id = d.id
+        LEFT JOIN (
+            SELECT dish_id, SUM(quantity) AS qty
+            FROM dish_sales
+            WHERE stall_id = #{stallId}
+              AND sale_date &gt;= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+              AND sale_date &lt; DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            GROUP BY dish_id
+        ) prev ON prev.dish_id = d.id
+        WHERE d.stall_id = #{stallId}
+          AND d.deleted = 0
+          AND d.status = 1
+          AND COALESCE(rec.qty, 0) &gt; 0
+        ORDER BY rec.qty DESC
+        LIMIT 10
+    </select>
+
 </mapper>

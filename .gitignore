@@ -9,3 +9,13 @@ target/
 .DS_Store
 .codegraph/
 .workbuddy/
+
+# 数据生成临时文件
+scripts/generated_data.sql
+scripts/orders_and_sales.sql
+scripts/sales_only.sql
+scripts/backup_before_regenerate.sql
+
+# 原始素材目录（已复制到前端 public）
+avatar/
+gourmet food/

@@ -10,6 +10,7 @@ public class FeedbackVO {
     private Long id;
     private Long userId;
     private String userName;
+    private String avatar;
     private Long stallId;
     private String stallName;
     private String title;

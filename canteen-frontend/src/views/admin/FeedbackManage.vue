@@ -26,8 +26,18 @@
 
       <el-table ref="tableRef" :data="records" row-key="id" border stripe v-loading="loading" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="48" />
-        <el-table-column prop="title" label="标题" min-width="150" />
-        <el-table-column prop="userName" label="留言人" width="100" />
+        <el-table-column prop="title" label="标题" min-width="180" />
+        <el-table-column label="留言人" width="150">
+          <template #default="{ row }">
+            <div class="user-cell">
+              <div class="user-avatar">
+                <img v-if="row.avatar" :src="row.avatar" :alt="row.userName" @error="onAvatarError($event)" />
+                <span v-else>{{ (row.userName || '客').slice(0, 1) }}</span>
+              </div>
+              <span class="user-name">{{ row.userName }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="stallName" label="关联档口" width="120" />
         <el-table-column label="类型" width="90" align="center">
           <template #default="{ row }">
@@ -182,6 +192,14 @@ async function handleBatchDelete() {
   }
 }
 
+function onAvatarError(e) {
+  e.target.style.display = 'none'
+  const parent = e.target.parentElement
+  const span = document.createElement('span')
+  span.textContent = '客'
+  parent.appendChild(span)
+}
+
 function typeTag(type) {
   return { SUGGEST: 'primary', COMPLAINT: 'danger', PRAISE: 'success', OTHER: 'info' }[type] || 'info'
 }
@@ -198,6 +216,41 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-name {
+  font-size: 13px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .filter-toolbar {
   margin-left: auto;
   display: flex;

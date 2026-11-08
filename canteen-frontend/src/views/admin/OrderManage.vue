@@ -26,9 +26,13 @@
           <template #default="{ row }">
             <div class="expand-box">
               <div v-for="item in row.items || []" :key="item.id" class="expand-item">
-                <span>{{ item.dishName }}</span>
+                <div class="expand-thumb">
+                  <img v-if="item.dishImage" :src="item.dishImage" :alt="item.dishName" @error="onImgError($event)" />
+                  <span v-else>{{ (item.dishName || '菜').slice(0, 1) }}</span>
+                </div>
+                <span class="expand-name">{{ item.dishName }}</span>
                 <span class="muted">¥{{ item.price }} × {{ item.quantity }}</span>
-                <span>¥{{ item.amount }}</span>
+                <span class="expand-amount">¥{{ item.amount }}</span>
               </div>
               <div v-if="row.remark" class="expand-remark">备注：{{ row.remark }}</div>
             </div>
@@ -89,6 +93,14 @@ const stalls = ref([])
 
 const query = reactive({ current: 1, size: 10, status: undefined, stallId: undefined, keyword: '' })
 
+function onImgError(e) {
+  e.target.style.display = 'none'
+  const parent = e.target.parentElement
+  const span = document.createElement('span')
+  span.textContent = '菜'
+  parent.appendChild(span)
+}
+
 function statusType(status) {
   return { PENDING: 'warning', DONE: 'success', CANCELED: 'info' }[status] || 'info'
 }
@@ -124,10 +136,45 @@ onMounted(async () => {
 
 .expand-item {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
   font-size: 13px;
-  padding: 3px 0;
+  padding: 6px 0;
+}
+
+.expand-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ffd0a6, #ff9d5c);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.expand-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.expand-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.expand-amount {
+  color: var(--text-1);
+  font-weight: 600;
+  min-width: 70px;
+  text-align: right;
 }
 
 .expand-remark {

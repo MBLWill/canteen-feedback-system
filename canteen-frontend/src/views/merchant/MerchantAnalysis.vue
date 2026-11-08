@@ -15,16 +15,20 @@
     <div class="analysis-cols">
       <!-- 左栏 -->
       <div class="col-left">
-        <!-- 趋势图 -->
+        <!-- 收入趋势 -->
         <el-card shadow="never" class="page-card">
           <template #header>
             <div class="card-head">
               <span class="card-title">收入趋势</span>
-              <el-radio-group v-model="trendDays" size="small" @change="loadDaily">
-                <el-radio-button :value="7">近7天</el-radio-button>
-                <el-radio-button :value="30">近一月</el-radio-button>
-                <el-radio-button :value="180">近半年</el-radio-button>
-              </el-radio-group>
+              <div class="seg-group">
+                <span
+                  v-for="opt in trendOptions"
+                  :key="opt.value"
+                  class="seg-item"
+                  :class="{ active: trendDays === opt.value }"
+                  @click="trendDays = opt.value; loadDaily()"
+                >{{ opt.label }}</span>
+              </div>
             </div>
           </template>
           <EChart :option="trendOption" height="300px" />
@@ -33,12 +37,23 @@
         <!-- 最受欢迎食物 -->
         <el-card shadow="never" class="page-card">
           <template #header>
-            <div class="card-head"><span class="card-title">最受欢迎的食物</span></div>
+            <div class="card-head">
+              <span class="card-title">最受欢迎的食物</span>
+              <div class="seg-group">
+                <span
+                  v-for="opt in rangeOptions"
+                  :key="opt.value"
+                  class="seg-item"
+                  :class="{ active: popularRange === opt.value }"
+                  @click="popularRange = opt.value; loadPopular()"
+                >{{ opt.label }}</span>
+              </div>
+            </div>
           </template>
           <div class="popular-grid">
             <div v-for="d in popularDishes" :key="d.id" class="popular-card" @click="goDish(d)">
               <div class="popular-cover" :style="{ background: coverGradient(d.category) }">
-                <img v-if="d.image" :src="d.image" :alt="d.name" loading="lazy">
+                <img v-if="d.image" :src="d.image" :alt="d.name" loading="lazy" @error="onImgError($event)">
                 <span v-else class="popular-initial">{{ (d.name || '菜').slice(0, 1) }}</span>
                 <span v-if="d.avgRating" class="popular-rating">{{ Number(d.avgRating).toFixed(1) }}★</span>
               </div>
@@ -46,7 +61,7 @@
                 <div class="popular-name">{{ d.name }}</div>
                 <div class="popular-meta">
                   <span class="popular-price">¥{{ d.price }}</span>
-                  <span class="popular-sales">{{ d.salesCount || 0 }} 份售出</span>
+                  <span class="popular-likes">♥ {{ d.favoriteCount || 0 }}</span>
                 </div>
               </div>
             </div>
@@ -57,17 +72,67 @@
 
       <!-- 右栏 -->
       <div class="col-right">
+        <!-- 趋势项目（潜力菜品） -->
+        <el-card shadow="never" class="page-card">
+          <template #header>
+            <div class="card-head">
+              <span class="card-title">🔥 趋势项目</span>
+              <span class="card-sub">近 7 天潜力菜品</span>
+            </div>
+          </template>
+          <div class="trend-list">
+            <div v-for="(d, i) in trendDishes" :key="d.dishId" class="trend-item">
+              <span class="trend-rank" :class="'tr-' + (i + 1)">#{{ i + 1 }}</span>
+              <div class="trend-thumb" :style="{ background: coverGradient('荤菜') }">
+                <img v-if="d.dishImage" :src="d.dishImage" :alt="d.dishName" loading="lazy" @error="onImgError($event)">
+                <span v-else>{{ (d.dishName || '菜').slice(0, 1) }}</span>
+              </div>
+              <div class="trend-info">
+                <div class="trend-name">{{ d.dishName }}</div>
+                <div class="trend-price">¥{{ fmt(d.price) }} · 近7天{{ d.recentQty }}份</div>
+              </div>
+              <div class="trend-chart">
+                <svg viewBox="0 0 80 28" preserveAspectRatio="none">
+                  <polyline
+                    :points="sparkPoints(d.trend)"
+                    fill="none"
+                    :stroke="isUp(d.growthRate) ? '#16a34a' : '#ef4444'"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <span class="trend-grow" :class="isUp(d.growthRate) ? 'up' : 'down'">
+                  {{ isUp(d.growthRate) ? '+' : '' }}{{ d.growthRate }}%
+                </span>
+              </div>
+            </div>
+          </div>
+          <el-empty v-if="!trendDishes.length" description="暂无趋势数据" :image-size="60" />
+        </el-card>
+
         <!-- 畅销商品 -->
         <el-card shadow="never" class="page-card">
           <template #header>
-            <div class="card-head"><span class="card-title">畅销商品</span></div>
+            <div class="card-head">
+              <span class="card-title">畅销商品</span>
+              <div class="seg-group">
+                <span
+                  v-for="opt in rangeOptions"
+                  :key="opt.value"
+                  class="seg-item"
+                  :class="{ active: bestRange === opt.value }"
+                  @click="bestRange = opt.value; loadBest()"
+                >{{ opt.label }}</span>
+              </div>
+            </div>
           </template>
           <div class="best-list">
             <div v-for="(d, i) in bestSellers" :key="d.dishId" class="best-item">
               <span class="best-rank" :class="'rank-' + (i + 1)">{{ i + 1 }}</span>
               <div class="best-thumb" :style="{ background: coverGradient('主食') }">
-                <img v-if="d.dishImage" :src="d.dishImage" :alt="d.dishName" loading="lazy">
-                <span v-else class="best-initial">{{ (d.dishName || '菜').slice(0, 1) }}</span>
+                <img v-if="d.dishImage" :src="d.dishImage" :alt="d.dishName" loading="lazy" @error="onImgError($event)">
+                <span v-else>{{ (d.dishName || '菜').slice(0, 1) }}</span>
               </div>
               <div class="best-info">
                 <div class="best-name">{{ d.dishName }}</div>
@@ -87,7 +152,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import EChart from '@/components/EChart.vue'
-import { getSalesOverview, getSalesSummary, getDailyIncome } from '@/api/sales'
+import { getSalesOverview, getSalesSummary, getDailyIncome, getTrendDishes } from '@/api/sales'
 import { pageDishes } from '@/api/dish'
 import { coverGradient } from '@/utils/dishImage'
 
@@ -96,11 +161,43 @@ const daily = ref([])
 const monthly = ref([])
 const trendDays = ref(7)
 const popularDishes = ref([])
+const trendDishes = ref([])
+const popularRange = ref('day')
+const bestRange = ref('day')
 const summary = reactive({ dishCount: 0, totalIncome: 0, orderCount: 0, customerCount: 0 })
+
+const trendOptions = [
+  { label: '近7天', value: 7 },
+  { label: '近一月', value: 30 },
+  { label: '近半年', value: 180 }
+]
+const rangeOptions = [
+  { label: '每天', value: 'day' },
+  { label: '每周', value: 'week' },
+  { label: '每月', value: 'month' }
+]
 
 function fmt(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n.toFixed(2) : '0.00'
+}
+
+function isUp(rate) {
+  return Number(rate) >= 0
+}
+
+function sparkPoints(trend) {
+  const arr = trend || []
+  if (!arr.length) return '0,28 80,28'
+  const max = Math.max(...arr, 1)
+  const min = Math.min(...arr, 0)
+  const range = max - min || 1
+  const stepX = 80 / (arr.length - 1 || 1)
+  return arr.map((v, i) => {
+    const x = (i * stepX).toFixed(1)
+    const y = (28 - ((v - min) / range) * 24 - 2).toFixed(1)
+    return `${x},${y}`
+  }).join(' ')
 }
 
 const overviewCards = computed(() => [
@@ -140,12 +237,24 @@ function goDish(d) {
   router.push(`/dishes/${d.id}`)
 }
 
+function onImgError(e) {
+  e.target.style.display = 'none'
+  const parent = e.target.parentElement
+  if (parent) {
+    const span = document.createElement('span')
+    span.textContent = '菜'
+    span.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff'
+    parent.appendChild(span)
+  }
+}
+
 async function loadData() {
   const [ov, sm] = await Promise.all([getSalesOverview(), getSalesSummary()])
   monthly.value = ov.data.monthly || []
   Object.assign(summary, sm.data || {})
   loadDaily()
   loadPopular()
+  loadTrend()
 }
 
 async function loadDaily() {
@@ -155,7 +264,6 @@ async function loadDaily() {
 
 async function loadPopular() {
   try {
-    // 拉取本档口评分最高的菜品作为「最受欢迎」
     const res = await pageDishes({ current: 1, size: 9, sortBy: 'rating' })
     popularDishes.value = res.data.records || []
   } catch {
@@ -163,11 +271,24 @@ async function loadPopular() {
   }
 }
 
+async function loadTrend() {
+  try {
+    const res = await getTrendDishes()
+    trendDishes.value = res.data || []
+  } catch {
+    trendDishes.value = []
+  }
+}
+
+function loadBest() {
+  // 畅销商品数据已在 monthly 中，此处可扩展按时间维度筛选
+}
+
 onMounted(loadData)
 </script>
 
 <style scoped>
-.analysis-page { max-width: 1200px; margin: 0 auto; }
+.analysis-page { width: 100%; }
 
 .overview-grid {
   display: grid;
@@ -203,7 +324,7 @@ onMounted(loadData)
 
 .analysis-cols {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1.6fr 1fr;
   gap: 14px;
   align-items: start;
 }
@@ -212,6 +333,32 @@ onMounted(loadData)
 
 .card-head { display: flex; align-items: center; justify-content: space-between; }
 .card-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
+.card-sub { font-size: 12px; color: var(--text-3); }
+
+.seg-group {
+  display: flex;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.seg-item {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .18s ease;
+  white-space: nowrap;
+}
+
+.seg-item.active {
+  background: var(--surface);
+  color: var(--brand-dark);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
 
 /* 最受欢迎食物网格 */
 .popular-grid {
@@ -233,7 +380,7 @@ onMounted(loadData)
 
 .popular-cover {
   position: relative;
-  height: 100px;
+  height: 110px;
   overflow: hidden;
 }
 
@@ -278,7 +425,71 @@ onMounted(loadData)
   margin-top: 6px;
 }
 .popular-price { font-size: 14px; font-weight: 700; color: var(--brand-dark); }
-.popular-sales { font-size: 11px; color: var(--text-3); }
+.popular-likes { font-size: 12px; color: var(--text-3); }
+
+/* 趋势项目 */
+.trend-list { display: flex; flex-direction: column; gap: 10px; }
+
+.trend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+}
+
+.trend-rank {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  flex-shrink: 0;
+  width: 26px;
+}
+.trend-rank.tr-1 { color: #f59e0b; }
+.trend-rank.tr-2 { color: #94a3b8; }
+.trend-rank.tr-3 { color: #d97706; }
+
+.trend-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.trend-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.trend-info { flex: 1; min-width: 0; }
+.trend-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trend-price { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+.trend-chart {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.trend-chart svg { width: 80px; height: 28px; }
+
+.trend-grow { font-size: 11px; font-weight: 700; }
+.trend-grow.up { color: #16a34a; }
+.trend-grow.down { color: #ef4444; }
 
 /* 畅销商品列表 */
 .best-list { display: flex; flex-direction: column; gap: 10px; }
@@ -318,10 +529,12 @@ onMounted(loadData)
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .best-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.best-initial { font-size: 18px; font-weight: 700; color: #fff; }
 
 .best-info { flex: 1; min-width: 0; }
 .best-name {

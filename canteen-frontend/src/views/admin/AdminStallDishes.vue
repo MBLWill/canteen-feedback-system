@@ -340,7 +340,7 @@ onMounted(async () => {
 
 <style scoped>
 .stall-dishes-page {
-  max-width: 1240px;
+  width: 100%;
 }
 
 .page-head {
