@@ -8,6 +8,7 @@ import com.qmz.canteen.dto.ProfileUpdateRequest;
 import com.qmz.canteen.dto.RegisterRequest;
 import com.qmz.canteen.security.UserContext;
 import com.qmz.canteen.service.AuthService;
+import com.qmz.canteen.vo.AccountSummaryVO;
 import com.qmz.canteen.vo.LoginVO;
 import com.qmz.canteen.vo.UserInfoVO;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +42,12 @@ public class AuthController {
     @GetMapping("/profile")
     public Result<UserInfoVO> profile() {
         return Result.success(authService.getProfile(UserContext.getUserId()));
+    }
+
+    /** 我的账户统计（余额 / 总订单 / 总消费 / 已完成） */
+    @GetMapping("/account-summary")
+    public Result<AccountSummaryVO> accountSummary() {
+        return Result.success(authService.getAccountSummary(UserContext.getUserId()));
     }
 
     @PutMapping("/profile")

@@ -85,7 +85,17 @@
         <if test="query.handled != null">
             AND r.handled = #{query.handled}
         </if>
-        ORDER BY r.create_time DESC
+        <choose>
+            <when test="query.sort == 'rating_desc'">
+                ORDER BY r.rating DESC, r.create_time DESC
+            </when>
+            <when test="query.sort == 'rating_asc'">
+                ORDER BY r.rating ASC, r.create_time DESC
+            </when>
+            <otherwise>
+                ORDER BY r.create_time DESC
+            </otherwise>
+        </choose>
     </select>
 
 </mapper>

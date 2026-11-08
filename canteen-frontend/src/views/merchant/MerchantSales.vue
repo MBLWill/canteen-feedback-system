@@ -1,64 +1,106 @@
 <template>
-  <div class="page-container">
-    <el-card shadow="never" class="page-card" style="margin-bottom: 16px">
-      <template #header>
-        <div style="display: flex; justify-content: space-between; align-items: center">
-          <span style="font-weight: 600">销售情况</span>
-          <el-button size="small" @click="loadData">刷新</el-button>
+  <div class="page-container sales-page">
+    <!-- 顶部指标卡 -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-icon" style="background: linear-gradient(135deg,#ffd6a8,#ff9d5c)">🍜</div>
+        <div class="summary-body">
+          <div class="summary-value">{{ summary.dishCount ?? 0 }}</div>
+          <div class="summary-label">菜单总数</div>
         </div>
-      </template>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon" style="background: linear-gradient(135deg,#bfe3ff,#6bb8ff)">💰</div>
+        <div class="summary-body">
+          <div class="summary-value">¥{{ fmt(summary.totalIncome) }}</div>
+          <div class="summary-label">总收入</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon" style="background: linear-gradient(135deg,#cdeecb,#8fd694)">📋</div>
+        <div class="summary-body">
+          <div class="summary-value">{{ summary.orderCount ?? 0 }}</div>
+          <div class="summary-label">订单数</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon" style="background: linear-gradient(135deg,#e5d4ff,#b79bf0)">👥</div>
+        <div class="summary-body">
+          <div class="summary-value">{{ summary.customerCount ?? 0 }}</div>
+          <div class="summary-label">客户数</div>
+        </div>
+      </div>
+    </div>
 
-      <el-row :gutter="16">
-        <el-col :span="12">
-          <div class="chart-title">近 7 天各菜销量</div>
-          <EChart :option="weeklyOption" height="320px" />
-        </el-col>
-        <el-col :span="12">
-          <div class="chart-title">近 30 天各菜销量</div>
-          <EChart :option="monthlyOption" height="320px" />
-        </el-col>
-      </el-row>
-
-      <el-row :gutter="16" style="margin-top: 8px">
-        <el-col :span="24">
-          <div class="chart-head">
-            <span class="chart-title">每日收入（元）</span>
+    <!-- 收入趋势 + 每日收入 -->
+    <div class="chart-grid">
+      <el-card shadow="never" class="page-card">
+        <template #header>
+          <div class="card-head">
+            <span class="card-title">每日收入</span>
             <el-radio-group v-model="dailyDays" size="small" @change="loadDaily">
               <el-radio-button :value="7">近7天</el-radio-button>
               <el-radio-button :value="30">近一月</el-radio-button>
               <el-radio-button :value="180">近半年</el-radio-button>
-              <el-radio-button :value="365">近一年</el-radio-button>
             </el-radio-group>
           </div>
-          <EChart :option="dailyOption" height="320px" />
-        </el-col>
-      </el-row>
+        </template>
+        <EChart :option="dailyOption" height="300px" />
+      </el-card>
 
-      <el-row :gutter="16" style="margin-top: 8px">
-        <el-col :span="12">
-          <div class="chart-title">卖得好的菜（TOP3）</div>
-          <EChart :option="bestOption" height="300px" />
-        </el-col>
-        <el-col :span="12">
-          <div class="chart-title">卖得差的菜（BOTTOM3）</div>
-          <EChart :option="worstOption" height="300px" />
-        </el-col>
-      </el-row>
+      <el-card shadow="never" class="page-card">
+        <template #header>
+          <div class="card-head">
+            <span class="card-title">近 30 天菜品销量占比</span>
+          </div>
+        </template>
+        <EChart :option="monthlyOption" height="300px" />
+      </el-card>
+    </div>
+
+    <!-- 热销 TOP3 / BOTTOM3 -->
+    <div class="chart-grid">
+      <el-card shadow="never" class="page-card">
+        <template #header>
+          <div class="card-head"><span class="card-title">卖得好的菜（TOP3）</span></div>
+        </template>
+        <EChart :option="bestOption" height="280px" />
+      </el-card>
+      <el-card shadow="never" class="page-card">
+        <template #header>
+          <div class="card-head"><span class="card-title">卖得差的菜（BOTTOM3）</span></div>
+        </template>
+        <EChart :option="worstOption" height="280px" />
+      </el-card>
+    </div>
+
+    <!-- 近 7 天各菜销量 -->
+    <el-card shadow="never" class="page-card">
+      <template #header>
+        <div class="card-head"><span class="card-title">近 7 天各菜销量</span></div>
+      </template>
+      <EChart :option="weeklyOption" height="300px" />
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import EChart from '@/components/EChart.vue'
-import { getSalesOverview, getDailyIncome } from '@/api/sales'
+import { getSalesOverview, getSalesSummary, getDailyIncome } from '@/api/sales'
 
 const weekly = ref([])
 const monthly = ref([])
 const daily = ref([])
 const dailyDays = ref(7)
+const summary = reactive({ dishCount: 0, totalIncome: 0, orderCount: 0, customerCount: 0 })
 
 const ORANGE = '#f97316'
+
+function fmt(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n.toFixed(2) : '0.00'
+}
 
 const weeklyOption = computed(() => ({
   tooltip: { trigger: 'axis' },
@@ -89,14 +131,23 @@ const monthlyOption = computed(() => ({
 const dailyOption = computed(() => ({
   tooltip: { trigger: 'axis' },
   grid: { left: 50, right: 20, top: 20, bottom: 40 },
-  xAxis: { type: 'category', data: daily.value.map(d => d.saleDate) },
+  xAxis: { type: 'category', data: daily.value.map(d => d.saleDate), boundaryGap: false },
   yAxis: { type: 'value', name: '元' },
   series: [{
     type: 'line',
     smooth: true,
     data: daily.value.map(d => Number(d.amount)),
-    itemStyle: { color: ORANGE },
-    areaStyle: { color: 'rgba(249, 115, 22, 0.12)' }
+    itemStyle: { color: '#6bb8ff' },
+    lineStyle: { width: 3 },
+    areaStyle: {
+      color: {
+        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        colorStops: [
+          { offset: 0, color: 'rgba(107,184,255,0.35)' },
+          { offset: 1, color: 'rgba(107,184,255,0.02)' }
+        ]
+      }
+    }
   }]
 }))
 
@@ -120,9 +171,10 @@ const bestOption = computed(() => rankOption(monthly.value.slice(0, 3), false))
 const worstOption = computed(() => rankOption(monthly.value.slice(-3), true))
 
 async function loadData() {
-  const res = await getSalesOverview()
-  weekly.value = res.data.weekly || []
-  monthly.value = res.data.monthly || []
+  const [ov, sm] = await Promise.all([getSalesOverview(), getSalesSummary()])
+  weekly.value = ov.data.weekly || []
+  monthly.value = ov.data.monthly || []
+  Object.assign(summary, sm.data || {})
   loadDaily()
 }
 
@@ -135,16 +187,55 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.chart-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+.sales-page { max-width: 1200px; margin: 0 auto; }
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
-.chart-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-1);
+.summary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.summary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+
+.summary-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.summary-value { font-size: 22px; font-weight: 700; color: var(--text-1); line-height: 1.1; }
+.summary-label { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.card-head { display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
+
+@media (max-width: 900px) {
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid { grid-template-columns: 1fr; }
 }
 </style>

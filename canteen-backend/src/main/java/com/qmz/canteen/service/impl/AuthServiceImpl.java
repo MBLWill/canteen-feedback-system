@@ -8,23 +8,29 @@ import com.qmz.canteen.dto.ProfileUpdateRequest;
 import com.qmz.canteen.dto.RegisterRequest;
 import com.qmz.canteen.entity.DishFavorite;
 import com.qmz.canteen.entity.DishReview;
+import com.qmz.canteen.entity.DiningOrder;
 import com.qmz.canteen.entity.Feedback;
 import com.qmz.canteen.entity.User;
 import com.qmz.canteen.mapper.DishFavoriteMapper;
 import com.qmz.canteen.mapper.DishReviewMapper;
 import com.qmz.canteen.mapper.FeedbackMapper;
+import com.qmz.canteen.mapper.OrderMapper;
 import com.qmz.canteen.mapper.UserMapper;
 import com.qmz.canteen.security.JwtUtil;
 import com.qmz.canteen.security.LoginUser;
 import com.qmz.canteen.security.UserRole;
 import com.qmz.canteen.service.AuthService;
 import com.qmz.canteen.service.LoginLogService;
+import com.qmz.canteen.vo.AccountSummaryVO;
 import com.qmz.canteen.vo.LoginVO;
 import com.qmz.canteen.vo.UserInfoVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final DishReviewMapper dishReviewMapper;
     private final DishFavoriteMapper dishFavoriteMapper;
     private final FeedbackMapper feedbackMapper;
+    private final OrderMapper orderMapper;
 
     @Override
     public LoginVO login(LoginRequest request, String ip) {
@@ -104,6 +111,33 @@ public class AuthServiceImpl implements AuthService {
         return toUserInfo(user);
     }
 
+    @Override
+    public AccountSummaryVO getAccountSummary(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "用户不存在");
+        }
+
+        AccountSummaryVO vo = new AccountSummaryVO();
+        vo.setBalance(user.getBalance() == null ? BigDecimal.ZERO : user.getBalance());
+
+        List<DiningOrder> orders = orderMapper.selectList(new LambdaQueryWrapper<DiningOrder>()
+                .eq(DiningOrder::getUserId, userId));
+        long orderCount = orders.size();
+        long completedCount = orders.stream()
+                .filter(o -> "DONE".equals(o.getStatus()))
+                .count();
+        BigDecimal totalSpent = orders.stream()
+                .filter(o -> "PAID".equals(o.getPayStatus()) && o.getTotalAmount() != null)
+                .map(DiningOrder::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        vo.setOrderCount(orderCount);
+        vo.setCompletedCount(completedCount);
+        vo.setTotalSpent(totalSpent);
+        return vo;
+    }
+
     private UserInfoVO toUserInfo(User user) {
         UserInfoVO vo = new UserInfoVO();
         vo.setId(user.getId());
@@ -116,6 +150,7 @@ public class AuthServiceImpl implements AuthService {
         vo.setPhone(user.getPhone());
         vo.setEmail(user.getEmail());
         vo.setAvatar(user.getAvatar());
+        vo.setBalance(user.getBalance());
         vo.setStatus(user.getStatus());
         vo.setCreateTime(user.getCreateTime());
 

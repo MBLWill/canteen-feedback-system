@@ -79,7 +79,7 @@
     </el-card>
 
     <el-row :gutter="16">
-      <el-col v-for="dish in records" :key="dish.id" :span="6" style="margin-bottom: 16px">
+      <el-col v-for="dish in records" :key="dish.id" :xs="24" :sm="12" :md="8" :lg="6" style="margin-bottom: 16px">
         <DishCard :dish="dish" />
       </el-col>
     </el-row>

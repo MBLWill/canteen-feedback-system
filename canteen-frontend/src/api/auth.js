@@ -12,6 +12,10 @@ export function getProfile() {
   return request.get('/auth/profile')
 }
 
+export function getAccountSummary() {
+  return request.get('/auth/account-summary')
+}
+
 export function updateProfile(data) {
   return request.put('/auth/profile', data)
 }

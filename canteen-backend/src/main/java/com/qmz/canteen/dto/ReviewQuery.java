@@ -22,4 +22,6 @@ public class ReviewQuery {
     private Integer handled;
     private Integer status;
     private String keyword;
+    /** 排序：time_desc=最新(默认) rating_desc=好评优先 rating_asc=差评优先 */
+    private String sort;
 }

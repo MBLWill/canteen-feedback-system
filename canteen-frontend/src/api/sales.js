@@ -4,6 +4,10 @@ export function getSalesOverview() {
   return request.get('/merchant/sales/overview')
 }
 
+export function getSalesSummary() {
+  return request.get('/merchant/sales/summary')
+}
+
 export function getDailyIncome(days) {
   return request.get('/merchant/sales/daily', { params: { days } })
 }

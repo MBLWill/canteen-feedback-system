@@ -5,6 +5,7 @@ import com.qmz.canteen.security.UserContext;
 import com.qmz.canteen.service.SalesService;
 import com.qmz.canteen.vo.SalesDailyVO;
 import com.qmz.canteen.vo.SalesOverviewVO;
+import com.qmz.canteen.vo.SalesSummaryVO;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,12 @@ public class SalesController {
     @GetMapping("/overview")
     public Result<SalesOverviewVO> overview() {
         return Result.success(salesService.overview(UserContext.requireMerchant()));
+    }
+
+    /** 商家销售指标汇总（菜单总数 / 总收入 / 订单数 / 客户数） */
+    @GetMapping("/summary")
+    public Result<SalesSummaryVO> summary() {
+        return Result.success(salesService.summary(UserContext.requireMerchant()));
     }
 
     @GetMapping("/daily")

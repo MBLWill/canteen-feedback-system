@@ -32,7 +32,7 @@
     </el-card>
 
     <el-row :gutter="16">
-      <el-col v-for="s in filtered" :key="s.id" :span="8" style="margin-bottom: 16px">
+      <el-col v-for="s in filtered" :key="s.id" :xs="24" :sm="12" :md="8" style="margin-bottom: 16px">
         <el-card shadow="never" class="stall-card" @click="goDishes(s)">
           <div class="stall-cover" :style="coverStyle(s)">
             <span v-if="!coverPhoto(s)" class="stall-emoji">{{ emojiOf(s) }}</span>

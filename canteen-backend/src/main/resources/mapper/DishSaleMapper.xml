@@ -3,14 +3,16 @@
 <mapper namespace="com.qmz.canteen.mapper.DishSaleMapper">
 
     <select id="selectDishSales" resultType="com.qmz.canteen.vo.SalesDishVO">
-        SELECT dish_id AS dishId,
-               MAX(dish_name) AS dishName,
-               SUM(quantity) AS quantity,
-               SUM(amount) AS amount
-        FROM dish_sales
-        WHERE stall_id = #{stallId}
-          AND sale_date &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
-        GROUP BY dish_id
+        SELECT s.dish_id AS dishId,
+               MAX(s.dish_name) AS dishName,
+               MAX(d.image) AS dishImage,
+               SUM(s.quantity) AS quantity,
+               SUM(s.amount) AS amount
+        FROM dish_sales s
+        LEFT JOIN dish d ON d.id = s.dish_id AND d.deleted = 0
+        WHERE s.stall_id = #{stallId}
+          AND s.sale_date &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        GROUP BY s.dish_id
         ORDER BY quantity DESC
     </select>
 

@@ -113,6 +113,20 @@
             </svg>
           </button>
         </div>
+
+        <div class="chat-quick">
+          <button
+            v-for="q in quickActions"
+            :key="q.label"
+            class="quick-btn"
+            :class="{ 'quick-danger': q.danger }"
+            :disabled="loading"
+            @click="onQuick(q)"
+          >
+            <span class="quick-emoji">{{ q.emoji }}</span>
+            <span>{{ q.label }}</span>
+          </button>
+        </div>
       </div>
     </transition>
 
@@ -173,6 +187,28 @@ const inputPlaceholder = computed(() => (isMerchant.value
 
 const STUDENT_SUGGESTIONS = ['今天有什么推荐', '哪些菜要避雷', '怎么投诉某个窗口', '食堂几点营业']
 const MERCHANT_SUGGESTIONS = ['菜品在哪里添加', '学生下单后怎么处理', '怎么查看销售数据', '怎么绑定邮箱', '怎么给管理员留言']
+
+/** 底部快捷功能按钮：点击即发送对应指令，走智能体实时查库，不死板 */
+const quickActions = computed(() => {
+  const base = [
+    { label: '查订单', emoji: '📄', text: '帮我查一下我的订单', danger: false },
+    { label: '查看余额', emoji: '💰', text: '我的账户余额是多少', danger: false },
+    { label: '推荐菜品', emoji: '🥘', text: '今天有什么好吃的推荐', danger: false }
+  ]
+  if (isMerchant.value) {
+    base[0] = { label: '待办订单', emoji: '📋', text: '今天有哪些待处理订单', danger: false }
+    base[1] = { label: '销售数据', emoji: '📈', text: '帮我看看最近的销售情况', danger: false }
+  }
+  return [...base, { label: '清空对话', emoji: '🧹', text: '', danger: true }]
+})
+
+function onQuick(q) {
+  if (q.danger) {
+    newSession()
+    return
+  }
+  send(q.text)
+}
 
 const visibleSuggestions = computed(() => {
   const list = suggestions.value
@@ -779,6 +815,42 @@ async function scrollBottom() {
 }
 .send-btn:hover:not(:disabled) { transform: scale(1.08); }
 .send-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* 底部快捷功能按钮栏 */
+.chat-quick {
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.quick-btn:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+.quick-btn:disabled { opacity: .5; cursor: not-allowed; }
+.quick-emoji { font-size: 13px; }
+.quick-danger { color: #e0353b; }
+.quick-danger:hover:not(:disabled) {
+  border-color: #e0353b;
+  color: #e0353b;
+  background: #fdeaea;
+}
 
 .chat-pop-enter-active, .chat-pop-leave-active { transition: opacity .18s ease, transform .18s ease; }
 .chat-pop-enter-from, .chat-pop-leave-to { opacity: 0; transform: translateY(10px) scale(.98); }

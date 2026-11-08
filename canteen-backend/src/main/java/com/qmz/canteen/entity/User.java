@@ -34,6 +34,9 @@ public class User {
 
     private String avatar;
 
+    /** 账户余额（展示型，实际支付走支付链路） */
+    private java.math.BigDecimal balance;
+
     private Integer status;
 
     private LocalDateTime createTime;

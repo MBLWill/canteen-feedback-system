@@ -18,6 +18,8 @@ public class UserInfoVO {
     private String phone;
     private String email;
     private String avatar;
+    /** 账户余额（展示型） */
+    private java.math.BigDecimal balance;
     private Integer status;
     private Long reviewCount;
     private Long favoriteCount;

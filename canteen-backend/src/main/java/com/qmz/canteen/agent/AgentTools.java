@@ -2,7 +2,9 @@ package com.qmz.canteen.agent;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.qmz.canteen.common.BusinessException;
+import com.qmz.canteen.common.PageResult;
 import com.qmz.canteen.dto.CartAddRequest;
+import com.qmz.canteen.dto.OrderQuery;
 import com.qmz.canteen.entity.Dish;
 import com.qmz.canteen.entity.Notice;
 import com.qmz.canteen.mapper.DishMapper;
@@ -13,11 +15,15 @@ import com.qmz.canteen.security.UserContext;
 import com.qmz.canteen.security.UserRole;
 import com.qmz.canteen.service.CartService;
 import com.qmz.canteen.service.FaqService;
+import com.qmz.canteen.service.OrderService;
 import com.qmz.canteen.service.StallService;
 import com.qmz.canteen.service.StatsService;
+import com.qmz.canteen.vo.AccountSummaryVO;
 import com.qmz.canteen.vo.DishBriefVO;
 import com.qmz.canteen.vo.DishScatterVO;
 import com.qmz.canteen.vo.FaqVO;
+import com.qmz.canteen.vo.OrderItemVO;
+import com.qmz.canteen.vo.OrderVO;
 import com.qmz.canteen.vo.StallPopularityVO;
 import com.qmz.canteen.vo.StallVO;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +62,8 @@ public class AgentTools {
     private final DishMapper dishMapper;
     private final NoticeMapper noticeMapper;
     private final CartService cartService;
+    private final OrderService orderService;
+    private final com.qmz.canteen.service.AuthService authService;
 
     @Value("${canteen.good-rating-threshold}")
     private Integer goodThreshold;
@@ -137,7 +145,25 @@ public class AgentTools {
                                 "quantity", Map.of("type", "integer",
                                         "description", "份数，1-9，默认 1")
                         ),
-                        List.of())
+                        List.of()),
+
+                tool("my_orders",
+                        "查询当前登录用户自己的订单（订单号、档口、取餐时间、状态、支付状态、总金额、菜品明细）。"
+                                + "用户问「我的订单 / 查订单 / 我订了什么 / 订单到哪一步了」时必须调用本工具。"
+                                + "只能查当前用户自己的订单，不能查别人或后台全部订单。",
+                        Map.of(
+                                "status", Map.of("type", "string", "enum",
+                                        List.of("PENDING", "DONE", "CANCELED"),
+                                        "description", "可选，按状态过滤：PENDING=待取餐 DONE=已完成 CANCELED=已取消"),
+                                "limit", Map.of("type", "integer", "description", "返回条数，默认 5，最大 8")
+                        ),
+                        List.of()),
+
+                tool("my_balance",
+                        "查询当前登录用户的账户余额与消费统计（余额、总订单数、总消费金额、已完成订单数）。"
+                                + "用户问「我的余额 / 账户余额 / 还有多少钱 / 充了多少钱」时必须调用本工具，"
+                                + "不能凭记忆编造金额。",
+                        Map.of(), List.of())
         );
     }
 
@@ -152,6 +178,12 @@ public class AgentTools {
      */
     public Object execute(String name, Map<String, Object> args) {
         Map<String, Object> safeArgs = args == null ? Map.of() : args;
+        // 统一权限守卫：所有工具执行前先校验当前登录身份。
+        // 未登录的工具请求直接拒绝；学生越权调用管理员/商家专属工具直接拒绝。
+        Object guard = guardAccess(name);
+        if (guard != null) {
+            return guard;
+        }
         return switch (name) {
             case "search_dishes" -> searchDishes(str(safeArgs.get("keyword")), intArg(safeArgs.get("limit"), 5));
             case "list_stalls" -> listStalls(str(safeArgs.get("keyword")), normalizeArea(str(safeArgs.get("area"))), intOrNull(safeArgs.get("floor")));
@@ -162,8 +194,36 @@ public class AgentTools {
             case "get_overview" -> overview();
             case "add_to_cart" -> addToCart(str(safeArgs.get("dishId")), str(safeArgs.get("dishName")),
                     intArg(safeArgs.get("quantity"), 1));
+            case "my_orders" -> myOrders(str(safeArgs.get("status")), intArg(safeArgs.get("limit"), 5));
+            case "my_balance" -> myBalance();
             default -> Map.of("error", "未知工具：" + name);
         };
+    }
+
+    /**
+     * 工具权限守卫：确保智能体无法越权。
+     * <p>
+     * 权限模型：
+     * <ul>
+     *   <li>公开查询工具（search_dishes/list_stalls/list_stall_dishes/get_rankings/
+     *       search_faq/list_notices/get_overview）任何已登录用户可用；</li>
+     *   <li>add_to_cart 仅学生可用（商家/管理员不能替学生加购）；</li>
+     *   <li>my_orders / my_balance 仅能查「当前登录用户自己」的数据，内部用 UserContext 的 userId 强绑，无法传别人的 id；</li>
+     *   <li>智能体工具列表里根本没有「删除/改价/禁用用户/查看后台」这类危险工具，从能力层面杜绝捡漏。</li>
+     * </ul>
+     * 返回非 null 表示拒绝（作为工具结果返回给模型，让模型如实告知用户，而不是抛异常中断对话）。
+     */
+    private Object guardAccess(String name) {
+        LoginUser user = UserContext.get();
+        if (user == null || user.getUserId() == null) {
+            return Map.of("error", "请先登录后再使用该功能");
+        }
+        // 学生不能调用商家/管理员专属的能力；目前智能体工具集不含后台危险工具，
+        // 此处是防御性兜底，防止未来新增危险工具时被学生误触。
+        if ("add_to_cart".equals(name) && !UserRole.STUDENT.name().equals(user.getRole())) {
+            return Map.of("success", false, "error", "只有学生账号可以使用购物车加购");
+        }
+        return null;
     }
 
     /** 按关键词搜菜：菜名 / 档口名 / 分类 / 简介都能命中，保证新加的菜也能搜到 */
@@ -637,6 +697,71 @@ public class AgentTools {
         result.put("price", money(dish.getPrice()));
         result.put("quantity", qty);
         result.put("hint", "已真实加入购物车。请告诉用户已加入，并提醒到购物车/结算页自行支付，不要代用户支付。");
+        return result;
+    }
+
+    /**
+     * 查询当前登录用户自己的订单。强绑定 UserContext 的 userId，无法查询他人或后台订单。
+     */
+    private Object myOrders(String status, int limit) {
+        LoginUser user = UserContext.get();
+        if (user == null || user.getUserId() == null) {
+            return Map.of("error", "请先登录后再查询订单");
+        }
+        int size = clamp(limit, 1, 8);
+
+        OrderQuery query = new OrderQuery();
+        query.setCurrent(1L);
+        query.setSize((long) size);
+        if ("PENDING".equals(status) || "DONE".equals(status) || "CANCELED".equals(status)) {
+            query.setStatus(status);
+        }
+        PageResult<OrderVO> page = orderService.pageMyOrders(query, user.getUserId());
+
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (OrderVO o : page.getRecords()) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("orderNo", o.getOrderNo());
+            item.put("stallName", o.getStallName());
+            item.put("windowNo", o.getWindowNo());
+            item.put("pickupTime", o.getPickupTime() == null ? null : o.getPickupTime().toString());
+            item.put("status", o.getStatus());
+            item.put("statusLabel", o.getStatusLabel());
+            item.put("payStatusLabel", o.getPayStatusLabel());
+            item.put("totalAmount", money(o.getTotalAmount()));
+
+            List<Map<String, Object>> items = new ArrayList<>();
+            if (o.getItems() != null) {
+                for (OrderItemVO it : o.getItems()) {
+                    Map<String, Object> mi = new LinkedHashMap<>();
+                    mi.put("dishName", it.getDishName());
+                    mi.put("price", money(it.getPrice()));
+                    mi.put("quantity", it.getQuantity());
+                    mi.put("amount", money(it.getAmount()));
+                    items.add(mi);
+                }
+            }
+            item.put("items", items);
+            list.add(item);
+        }
+        return Map.of("count", list.size(), "total", page.getTotal(), "orders", list,
+                "hint", list.isEmpty() ? "当前没有符合条件的订单，请如实告知用户。" : "");
+    }
+
+    /**
+     * 查询当前登录用户的账户余额与消费统计。
+     */
+    private Object myBalance() {
+        LoginUser user = UserContext.get();
+        if (user == null || user.getUserId() == null) {
+            return Map.of("error", "请先登录后再查询余额");
+        }
+        AccountSummaryVO vo = authService.getAccountSummary(user.getUserId());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("balance", money(vo.getBalance()));
+        result.put("orderCount", vo.getOrderCount());
+        result.put("totalSpent", money(vo.getTotalSpent()));
+        result.put("completedCount", vo.getCompletedCount());
         return result;
     }
 

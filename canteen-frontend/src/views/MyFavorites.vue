@@ -9,7 +9,7 @@
     </div>
 
     <el-row :gutter="16">
-      <el-col v-for="dish in list" :key="dish.id" :span="6" style="margin-bottom: 16px">
+      <el-col v-for="dish in list" :key="dish.id" :xs="24" :sm="12" :md="8" :lg="6" style="margin-bottom: 16px">
         <div class="favorite-item">
           <el-checkbox v-model="selectedIds" :value="dish.id" class="favorite-check" @click.stop />
           <DishCard :dish="dish" />

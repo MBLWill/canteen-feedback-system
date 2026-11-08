@@ -56,10 +56,12 @@
             i.order_id AS orderId,
             i.dish_id AS dishId,
             i.dish_name AS dishName,
+            d.image AS dishImage,
             i.price,
             i.quantity,
             i.price * i.quantity AS amount
         FROM dining_order_item i
+        LEFT JOIN dish d ON d.id = i.dish_id AND d.deleted = 0
         WHERE i.deleted = 0
           AND i.order_id IN
         <foreach collection="orderIds" item="id" open="(" separator="," close=")">

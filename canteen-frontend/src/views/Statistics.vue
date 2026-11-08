@@ -5,9 +5,9 @@
 
     <!-- 总览指标卡 -->
     <el-row :gutter="14" style="margin-bottom: 18px">
-      <el-col v-for="item in overviewCards" :key="item.label" :span="4">
+      <el-col v-for="item in overviewCards" :key="item.label" :xs="12" :sm="8" :md="4">
         <div class="metric-card">
-          <div class="metric-icon">
+          <div class="metric-icon" :style="{ background: item.bg }">
             <img :src="item.icon" :alt="item.label" class="metric-icon-img">
           </div>
           <div class="metric-body">
@@ -181,12 +181,12 @@ const badTop = computed(() =>
   stallScatterList.value.filter(s => s.tag === 'bad').sort((a, b) => a.composite - b.composite).slice(0, 3))
 
 const overviewCards = computed(() => [
-  { label: '食堂窗口', value: overview.value.stallCount ?? 0, icon: '/ui/emoji/stall.png' },
-  { label: '在售菜品', value: overview.value.dishCount ?? 0, icon: '/ui/emoji/dish.png' },
-  { label: '累计评价', value: overview.value.reviewCount ?? 0, icon: '/ui/emoji/review.png' },
-  { label: '今日评价', value: overview.value.todayReviewCount ?? 0, icon: '/ui/emoji/today.png' },
-  { label: '新增收藏', value: overview.value.favoriteCount ?? 0, icon: '/ui/emoji/favorite.png' },
-  { label: '投诉/留言', value: overview.value.feedbackCount ?? 0, icon: '/ui/emoji/feedback.png' }
+  { label: '食堂窗口', value: overview.value.stallCount ?? 0, icon: '/ui/emoji/stall.png', bg: 'linear-gradient(135deg,#fff1e6,#ffe3cc)' },
+  { label: '在售菜品', value: overview.value.dishCount ?? 0, icon: '/ui/emoji/dish.png', bg: 'linear-gradient(135deg,#e8f4ff,#cfe6ff)' },
+  { label: '累计评价', value: overview.value.reviewCount ?? 0, icon: '/ui/emoji/review.png', bg: 'linear-gradient(135deg,#eaf8ec,#d0ecd4)' },
+  { label: '今日评价', value: overview.value.todayReviewCount ?? 0, icon: '/ui/emoji/today.png', bg: 'linear-gradient(135deg,#fff8e1,#ffefbf)' },
+  { label: '新增收藏', value: overview.value.favoriteCount ?? 0, icon: '/ui/emoji/favorite.png', bg: 'linear-gradient(135deg,#f3eefe,#e3d8ff)' },
+  { label: '投诉/留言', value: overview.value.feedbackCount ?? 0, icon: '/ui/emoji/feedback.png', bg: 'linear-gradient(135deg,#fdeef0,#fbd6db)' }
 ])
 
 const rankOption = computed(() => {
@@ -376,12 +376,13 @@ onMounted(loadAll)
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 16px;
+  padding: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
   transition: transform .18s ease, box-shadow .18s ease;
+  height: 100%;
 }
 
 .metric-card:hover {
@@ -390,19 +391,21 @@ onMounted(loadAll)
 }
 
 .metric-icon {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border-radius: 14px;
+  padding: 8px;
 }
 
 .metric-icon-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 

@@ -48,8 +48,15 @@
 
       <div class="order-items">
         <div v-for="item in order.items || []" :key="item.id" class="order-item">
-          <span>{{ item.dishName }}</span>
-          <span class="muted">¥{{ item.price }} × {{ item.quantity }}</span>
+          <div class="order-item-thumb" :style="{ background: coverGradient(item.category) }">
+            <img v-if="item.dishImage && !item.imgBroken" :src="item.dishImage" :alt="item.dishName" @error="item.imgBroken = true">
+            <span v-else class="order-item-initial">{{ (item.dishName || '菜').slice(0, 1) }}</span>
+          </div>
+          <div class="order-item-info">
+            <div class="order-item-name">{{ item.dishName }}</div>
+            <div class="order-item-price">¥{{ item.price }}</div>
+          </div>
+          <span class="order-item-qty">×{{ item.quantity }}</span>
           <span class="order-item-amount">¥{{ item.amount }}</span>
         </div>
       </div>
@@ -97,6 +104,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageMyOrders, updateOrderStatus } from '@/api/order'
 import { createPay, getPayStatus, mockPaySuccess } from '@/api/pay'
+import { coverGradient } from '@/utils/dishImage'
 
 const router = useRouter()
 const loading = ref(false)
@@ -227,19 +235,70 @@ onMounted(loadData)
   padding: 10px 12px;
   background: #fafafa;
   border-radius: var(--radius-md, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .order-item {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
   font-size: 13px;
-  padding: 3px 0;
+}
+
+.order-item-thumb {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.order-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.order-item-initial {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.order-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-item-price {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.order-item-qty {
+  flex-shrink: 0;
+  color: var(--text-2);
 }
 
 .order-item-amount {
   color: var(--text-1);
-  font-weight: 500;
+  font-weight: 600;
   min-width: 62px;
   text-align: right;
 }
