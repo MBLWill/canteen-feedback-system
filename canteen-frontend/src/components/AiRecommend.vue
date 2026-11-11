@@ -34,7 +34,7 @@
 
       <div v-if="thinking" class="ai-rec-loading">AI 小助手正在为你挑选…</div>
       <div v-else-if="picks.length" class="ai-rec-dishes">
-        <div v-for="d in picks" :key="'ai-' + d.dishId" class="ai-rec-dish" @click="go(d.dishId)">
+        <div v-for="d in picks" :key="'ai-' + d.dishId" class="ai-rec-dish" @click="go(d)">
           <div class="ai-rec-img" :style="{ background: grad(d.category) }">
             <img v-if="d.image" :src="d.image" :alt="d.dishName" loading="lazy" @error="$event.target.style.display='none'">
             <span v-else class="ai-rec-initial">{{ (d.dishName || '菜').slice(0, 1) }}</span>
@@ -73,18 +73,20 @@ function shuffle() {
   if (n > 0) offset.value = (offset.value + 3) % n
 }
 
-// 「发送」把问题发给 AI：先进入思考态，再给出推荐结果
+// 「发送」把问题发给 AI 小助手：唤醒全局小助手窗口并自动发送该问题
 function generate() {
-  if (thinking.value) return
-  thinking.value = true
-  setTimeout(() => {
-    shuffle()
-    thinking.value = false
-  }, 600)
+  const question = '推荐一下今天的热销菜吧！'
+  window.dispatchEvent(new CustomEvent('canteen:assistant-ask', { detail: question }))
 }
 
-function go(id) {
-  if (id) router.push(`/dishes/${id}`)
+function go(d) {
+  // 点菜品先跳对应档口页并高亮，再点菜品才进详情（与美食广场主网格一致）
+  if (!d || !d.dishId) return
+  if (d.stallId) {
+    router.push(`/stalls/${d.stallId}?highlight=${d.dishId}`)
+  } else {
+    router.push(`/dishes/${d.dishId}`)
+  }
 }
 
 function grad(cat) {

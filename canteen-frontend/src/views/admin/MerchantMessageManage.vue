@@ -15,7 +15,12 @@
             <div class="merchant-cell">
               <div class="merchant-avatar">
                 <span class="avatar-fallback">{{ (row.stallName || '商').slice(0, 1) }}</span>
-                <img v-if="row.coverImage" :src="row.coverImage" alt="" @error="$event.target.style.display='none'" />
+                <img
+                  v-if="row.merchantAvatar || row.coverImage"
+                  :src="row.merchantAvatar || row.coverImage"
+                  alt=""
+                  @error="$event.target.style.display='none'"
+                />
               </div>
               <div class="merchant-info">
                 <div class="merchant-name">{{ row.stallName }}</div>
@@ -71,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick , onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listAllMessages, replyMessage } from '@/api/merchant'
 import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
@@ -126,6 +131,7 @@ onMounted(async () => {
   await nextTick()
   bind(wrapRef.value)
 })
+onActivated(loadData)
 </script>
 
 <style scoped>
@@ -149,10 +155,13 @@ onMounted(async () => {
   position: relative;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+  border-radius: 50%;
+  background: #fff;
   overflow: hidden;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .merchant-avatar .avatar-fallback {

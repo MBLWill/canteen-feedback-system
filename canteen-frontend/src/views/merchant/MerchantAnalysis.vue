@@ -149,7 +149,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted , onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import EChart from '@/components/EChart.vue'
 import { getSalesOverview, getSalesSummary, getDailyIncome, getTrendDishes } from '@/api/sales'
@@ -285,6 +285,7 @@ function loadBest() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>

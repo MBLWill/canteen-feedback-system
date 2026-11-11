@@ -58,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick , onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listNotices, createNotice, updateNotice, deleteNotice } from '@/api/notice'
 
@@ -174,6 +174,7 @@ async function handleBatchDelete() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>

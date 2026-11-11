@@ -47,7 +47,7 @@
       </div>
 
       <div class="order-items">
-        <div v-for="item in order.items || []" :key="item.id" class="order-item">
+        <div v-for="item in order.items || []" :key="item.id" class="order-item" @click="goDish(item)">
           <div class="order-item-thumb" :style="{ background: coverGradient(item.category) }">
             <img v-if="item.dishImage && !item.imgBroken" :src="item.dishImage" :alt="item.dishName" @error="item.imgBroken = true">
             <span v-else class="order-item-initial">{{ (item.dishName || '菜').slice(0, 1) }}</span>
@@ -99,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageMyOrders, updateOrderStatus } from '@/api/order'
@@ -166,6 +166,12 @@ function goReview(order) {
   router.push({ path: `/dishes/${dishId}`, query: { from: 'orders' } })
 }
 
+function goDish(item) {
+  if (item?.dishId) {
+    router.push({ path: `/dishes/${item.dishId}`, query: { from: 'orders' } })
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -188,6 +194,7 @@ function cancelOrder(order) {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>
@@ -245,6 +252,13 @@ onMounted(loadData)
   align-items: center;
   gap: 12px;
   font-size: 13px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.order-item:hover {
+  background: #f3f4f6;
 }
 
 .order-item-thumb {

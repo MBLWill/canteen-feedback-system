@@ -8,9 +8,16 @@
       <el-button @click="backToStalls">← 返回商家管理</el-button>
     </div>
 
-    <el-card shadow="never" class="hero-card">
+    <el-empty v-if="!stall && !loading" description="档口不存在或已被删除">
+      <el-button type="primary" @click="backToStalls">返回商家管理</el-button>
+    </el-empty>
+
+    <el-card v-if="stall" shadow="never" class="hero-card">
       <div class="hero-main">
-        <span class="hero-icon"><img src="/ui/emoji/stall.png" alt=""></span>
+        <span class="hero-icon">
+          <img v-if="stall?.merchantAvatar" :src="stall.merchantAvatar" alt="商家头像" @error="$event.target.style.display='none'">
+          <img v-else src="/ui/emoji/stall.png" alt="">
+        </span>
         <div class="hero-text">
           <h1 class="hero-title">{{ stall?.name || '档口菜单' }}</h1>
           <div class="hero-sub">
@@ -34,7 +41,7 @@
       </div>
     </el-card>
 
-    <el-card shadow="never" class="cert-card">
+    <el-card v-if="stall" shadow="never" class="cert-card">
       <template #header>
         <div class="cert-header">
           <span style="font-weight: 600">商家认证信息</span>
@@ -68,7 +75,7 @@
       </el-row>
     </el-card>
 
-    <el-card shadow="never" class="filter-card">
+    <el-card v-if="stall" shadow="never" class="filter-card">
       <div class="filter-bar">
         <el-input
           v-model="keyword"
@@ -149,7 +156,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStall } from '@/api/stall'
@@ -203,8 +210,13 @@ const isIndeterminate = computed(() =>
 )
 
 async function loadStall() {
-  const res = await getStall(route.params.id)
-  stall.value = res.data
+  try {
+    const res = await getStall(route.params.id)
+    stall.value = res.data
+  } catch {
+    // 档口不存在（可能已被删除）：清空，页面显示友好空态
+    stall.value = null
+  }
 }
 
 async function loadDishes() {
@@ -336,6 +348,23 @@ onMounted(async () => {
   await loadStall()
   await loadDishes()
 })
+
+// 商家管理列表被 keep-alive 缓存，切换不同档口 id 时需重新加载（否则显示上一个档口的数据）
+// 返回列表时 route.params.id 会变成 undefined，此时不加载，避免用无效 id 请求后端报「参数 id 类型不正确」
+// 关键：/dishes/:id 与 /stalls/:id 共用 :id 参数名，必须用 route.name 判空，
+// 否则切到菜品详情页时本组件（仍被 keep-alive 缓存）会把菜品 id 当成档口 id 去查，报「档口不存在」
+watch(
+  () => (route.name === 'AdminStallDishes' ? route.params.id : null),
+  async (id) => {
+    if (!id) return
+    manageMode.value = false
+    selectedIds.value = []
+    keyword.value = ''
+    sortBy.value = 'rating'
+    await loadStall()
+    await loadDishes()
+  }
+)
 </script>
 
 <style scoped>
@@ -373,18 +402,21 @@ onMounted(async () => {
 .hero-icon {
   width: 62px;
   height: 62px;
-  border-radius: 18px;
-  background: #fff1e4;
+  /* 圆形头像：logo 原图直接圆形裁切显示，像普通用户头像一样，不加额外背景色 */
+  border-radius: 50%;
+  background: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 8px 20px rgba(255, 122, 26, 0.16);
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .hero-icon img {
-  width: 46px;
-  height: 46px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .hero-title {

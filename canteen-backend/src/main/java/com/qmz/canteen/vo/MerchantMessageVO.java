@@ -16,6 +16,8 @@ public class MerchantMessageVO {
     private String windowNo;
     /** 商户封面/头像 */
     private String coverImage;
+    /** 商家账号头像（logo），优先用于列表展示 */
+    private String merchantAvatar;
     /** 区域楼层，如「南区 1 楼」 */
     private String zone;
     private String content;

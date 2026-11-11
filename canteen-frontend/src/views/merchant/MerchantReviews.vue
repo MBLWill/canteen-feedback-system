@@ -20,6 +20,8 @@
           <el-option label="最新优先" value="time_desc" />
           <el-option label="好评优先" value="rating_desc" />
           <el-option label="差评优先" value="rating_asc" />
+          <el-option label="最高点赞" value="like_desc" />
+          <el-option label="最高浏览" value="view_desc" />
         </el-select>
         <el-select v-model="query.handled" placeholder="全部状态" clearable style="width: 140px" @change="handleFilterChange">
           <el-option label="待处理" :value="0" />
@@ -74,6 +76,11 @@
                 <span class="review-time">{{ r.createTime }}</span>
               </div>
               <div class="review-content">{{ r.content || '（未填写文字评价）' }}</div>
+              <div class="review-meta">
+                <span class="meta-item">👍 {{ r.likeCount || 0 }}</span>
+                <span class="meta-item">👁 {{ r.viewCount || 0 }}</span>
+                <span class="meta-item">💬 {{ (r.replyCount || 0) + (r.merchantReply ? 1 : 0) }}</span>
+              </div>
               <div v-if="r.merchantReply" class="review-reply">
                 <span class="reply-label">商家回复（{{ r.merchantReplyTime }}）</span>
                 <div class="reply-text">{{ r.merchantReply }}</div>
@@ -125,7 +132,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted , onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMerchantReviews, replyReview } from '@/api/review'
 import { coverGradient } from '@/utils/dishImage'
@@ -225,6 +232,7 @@ async function submitReply() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>
@@ -446,6 +454,17 @@ onMounted(loadData)
 }
 .reply-label { font-size: 12px; color: var(--text-3); }
 .reply-text { margin-top: 4px; font-size: 14px; color: var(--text-1); white-space: pre-wrap; }
+
+.review-meta {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.meta-item {
+  font-size: 12px;
+  color: var(--text-3);
+}
 
 .review-side {
   display: flex;

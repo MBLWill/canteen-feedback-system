@@ -31,6 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -66,13 +68,26 @@ public class DishServiceImpl implements DishService {
         ReviewQuery reviewQuery = new ReviewQuery();
         reviewQuery.setDishId(dishId);
         reviewQuery.setStatus(DishReview.STATUS_PUBLISHED);
-        IPage<ReviewVO> latest = dishReviewMapper.selectReviewPage(new Page<>(1, 5), reviewQuery, userId);
+        reviewQuery.setSize(20L);
+        // 进入详情页：该菜品所有已发布评价浏览量 +1（先增后查，返回数据即时反映）
+        dishReviewMapper.incrViewByDish(dishId);
+        IPage<ReviewVO> latest = dishReviewMapper.selectReviewPage(new Page<>(1, 20), reviewQuery, userId);
+
+        // 我的评价置顶，其余按点赞量从高到低排（点赞相同再按时间倒序）
+        List<ReviewVO> reviews = latest.getRecords();
+        reviews.sort(Comparator
+                .comparing((ReviewVO r) -> !Boolean.TRUE.equals(r.getMine()))
+                .thenComparing(r -> r.getLikeCount() == null ? 0 : r.getLikeCount(),
+                        Comparator.reverseOrder())
+                .thenComparing(r -> r.getCreateTime() == null ? LocalDateTime.MIN : r.getCreateTime(),
+                        Comparator.reverseOrder()));
 
         DishDetailVO detail = new DishDetailVO();
         detail.setDish(dish);
         detail.setDistribution(buildDistribution(dishId));
-        detail.setLatestReviews(latest.getRecords());
+        detail.setLatestReviews(reviews);
         detail.setRecommendDishes(dishMapper.selectRecommendDishes(dishId, 4L, goodThreshold));
+        detail.setCanReview(userId != null && dishReviewMapper.countPurchased(dishId, userId) > 0);
         return detail;
     }
 

@@ -197,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listStalls, createStall, updateStall, deleteStall, resetMerchantPassword, listWindowNos } from '@/api/stall'
@@ -475,6 +475,8 @@ function handleRowClick(row, column) {
 }
 
 onMounted(loadData)
+// keep-alive 缓存后回访重新拉取，避免列表陈旧（陈旧 id 会导致点进详情报「档口不存在」）
+onActivated(loadData)
 </script>
 
 <style scoped>

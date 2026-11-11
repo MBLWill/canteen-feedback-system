@@ -76,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick , onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageUsers, updateUserStatus } from '@/api/user'
 
@@ -144,6 +144,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (ro) ro.disconnect()
 })
+onActivated(loadData)
 </script>
 
 <style scoped>
@@ -210,7 +211,7 @@ onBeforeUnmount(() => {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+  background: #fff;
   overflow: hidden;
   flex-shrink: 0;
 }

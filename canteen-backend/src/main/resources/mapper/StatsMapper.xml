@@ -28,7 +28,14 @@
             s.window_no AS windowNo,
             CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS stallZone,
             d.price AS price,
-            (SELECT IFNULL(SUM(ds.quantity), 0) FROM dish_sales ds WHERE ds.dish_id = d.id) AS salesCount,
+            (SELECT IFNULL(SUM(ds.quantity), 0) FROM dish_sales ds WHERE ds.dish_id = d.id
+                <if test="period == 'today'">
+                    AND ds.sale_date = CURDATE()
+                </if>
+                <if test="period == 'week'">
+                    AND ds.sale_date &gt;= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+                </if>
+            ) AS salesCount,
             ROUND(AVG(r.rating), 2) AS avgRating,
             COUNT(r.id) AS reviewCount,
             ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END) / COUNT(r.id) * 100, 2) AS goodRate
@@ -37,7 +44,14 @@
         INNER JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
         WHERE d.deleted = 0 AND d.status = 1
         GROUP BY d.id, d.name, d.image, d.price, s.id, s.name, s.window_no, s.area, s.floor
-        ORDER BY avgRating DESC, reviewCount DESC
+        <choose>
+            <when test="period == 'today' or period == 'week'">
+                ORDER BY salesCount DESC, avgRating DESC
+            </when>
+            <otherwise>
+                ORDER BY avgRating DESC, reviewCount DESC
+            </otherwise>
+        </choose>
         LIMIT #{limit}
     </select>
 

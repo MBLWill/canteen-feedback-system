@@ -28,3 +28,23 @@ export function getMerchantReviews(params) {
 export function replyReview(id, data) {
   return request.put(`/reviews/${id}/reply`, data)
 }
+
+// 点赞 / 取消点赞
+export function likeReview(id) {
+  return request.post(`/reviews/${id}/like`)
+}
+
+// 学生对评价的追问/回答
+export function studentReply(id, data) {
+  return request.post(`/reviews/${id}/student-reply`, data)
+}
+
+// 查询某评价的学生回复列表
+export function getReplies(id) {
+  return request.get(`/reviews/${id}/replies`)
+}
+
+// 是否可评价该菜品（需下过单）
+export function canReview(dishId) {
+  return request.get('/reviews/can-review', { params: { dishId } })
+}

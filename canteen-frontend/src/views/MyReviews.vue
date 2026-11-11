@@ -14,9 +14,9 @@
 
       <el-empty v-if="!records.length && !loading" description="你还没有评价过菜品，快去逛逛吧～" />
 
-      <div v-for="r in records" :key="r.id" class="review-item">
+      <div v-for="r in records" :key="r.id" class="review-item" @click="goDish(r)">
         <div class="review-row">
-          <el-checkbox v-model="selectedIds" :value="r.id" class="item-check" />
+          <el-checkbox v-model="selectedIds" :value="r.id" class="item-check" @click.stop />
           <!-- 菜品图片 -->
           <div class="review-thumb">
             <img v-if="r.dishImage" :src="r.dishImage" :alt="r.dishName" loading="lazy" @error="onImgError($event, r)" />
@@ -36,7 +36,7 @@
               <el-tag v-if="r.status === 2" type="danger" size="small">已被屏蔽</el-tag>
               <el-tag v-else-if="r.status === 0" type="warning" size="small">待审核</el-tag>
               <el-tag v-else type="success" size="small">已发布</el-tag>
-              <el-button link type="danger" style="margin-left: 8px" @click="handleDelete(r)">删除</el-button>
+              <el-button link type="danger" style="margin-left: 8px" @click.stop="handleDelete(r)">删除</el-button>
             </div>
           </div>
         </div>
@@ -56,11 +56,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StarRating from '@/components/StarRating.vue'
 import { pageMyReviews, deleteReview } from '@/api/review'
 
+const router = useRouter()
 const loading = ref(false)
 const records = ref([])
 const total = ref(0)
@@ -92,6 +94,12 @@ async function loadData() {
 function onImgError(e, r) {
   e.target.style.display = 'none'
   e.target.nextElementSibling && (e.target.nextElementSibling.style.display = 'flex')
+}
+
+function goDish(r) {
+  if (r?.dishId) {
+    router.push(`/dishes/${r.dishId}`)
+  }
 }
 
 function handleDelete(row) {
@@ -126,6 +134,7 @@ async function handleBatchDelete() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>
@@ -170,6 +179,7 @@ onMounted(loadData)
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #ffd0a6, #ff9d5c);
+  cursor: pointer;
 }
 
 .review-thumb img {
@@ -199,6 +209,11 @@ onMounted(loadData)
 .review-dish-name {
   font-weight: 600;
   color: var(--text-1);
+  cursor: pointer;
+}
+
+.review-dish-name:hover {
+  color: var(--brand);
 }
 
 .review-right {
@@ -218,6 +233,12 @@ onMounted(loadData)
 .review-item {
   padding: 14px 0;
   border-bottom: 1px solid #f0f1f3;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.review-item:hover {
+  background: #fffaf5;
 }
 
 .review-item:last-child {

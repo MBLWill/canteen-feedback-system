@@ -34,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted , onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
 import { sendMessage, listMyMessages } from '@/api/merchant'
 
@@ -70,6 +70,7 @@ async function handleSend() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>

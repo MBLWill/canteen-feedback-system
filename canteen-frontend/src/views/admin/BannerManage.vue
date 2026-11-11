@@ -97,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick , onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageBanners, createBanner, updateBanner, deleteBanner } from '@/api/banner'
 import { listStalls } from '@/api/stall'
@@ -238,6 +238,7 @@ onMounted(async () => {
   stalls.value = res.data
   loadData()
 })
+onActivated(loadData)
 </script>
 
 <style scoped>

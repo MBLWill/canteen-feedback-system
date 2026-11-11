@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick , onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { pageDishes, createDish, updateDish, deleteDish } from '@/api/dish'
@@ -246,6 +246,7 @@ onMounted(async () => {
   await nextTick()
   bind(wrapRef.value)
 })
+onActivated(loadData)
 </script>
 
 <style scoped>

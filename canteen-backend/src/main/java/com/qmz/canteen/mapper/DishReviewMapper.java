@@ -36,4 +36,28 @@ public interface DishReviewMapper extends BaseMapper<DishReview> {
     @Update("UPDATE dish_review SET rating = #{rating}, content = #{content}, anonymous = #{anonymous}, "
             + "status = #{status}, deleted = 0, create_time = NOW() WHERE id = #{id}")
     int restoreAndUpdate(DishReview review);
+
+    /** 点赞数 +1（原子） */
+    @Update("UPDATE dish_review SET like_count = like_count + 1 WHERE id = #{id}")
+    int incrLike(@Param("id") Long id);
+
+    /** 点赞数 -1（原子，下限 0） */
+    @Update("UPDATE dish_review SET like_count = GREATEST(like_count - 1, 0) WHERE id = #{id}")
+    int decrLike(@Param("id") Long id);
+
+    /** 学生回复数 +1（原子） */
+    @Update("UPDATE dish_review SET reply_count = reply_count + 1 WHERE id = #{id}")
+    int incrReply(@Param("id") Long id);
+
+    /** 某菜品全部已发布评价浏览量 +1（进入详情页时批量） */
+    @Update("UPDATE dish_review SET view_count = view_count + 1 "
+            + "WHERE dish_id = #{dishId} AND deleted = 0 AND status = 1")
+    int incrViewByDish(@Param("dishId") Long dishId);
+
+    /** 判断用户是否购买过该菜品（存在非取消订单项），用于「下单才能评价」校验 */
+    @Select("SELECT COUNT(*) FROM dining_order_item oi "
+            + "INNER JOIN dining_order o ON o.id = oi.order_id AND o.deleted = 0 "
+            + "WHERE oi.dish_id = #{dishId} AND o.user_id = #{userId} "
+            + "AND o.status <> 'CANCELED' AND oi.deleted = 0")
+    int countPurchased(@Param("dishId") Long dishId, @Param("userId") Long userId);
 }

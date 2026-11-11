@@ -56,9 +56,10 @@ public class StatsServiceImpl implements StatsService {
     }
 
     @Override
-    public List<DishRankVO> dishRanking(Long limit) {
+    public List<DishRankVO> dishRanking(Long limit, String period) {
         long size = limit == null || limit < 1 ? 10 : Math.min(limit, 50);
-        return statsMapper.selectDishRanking(size, goodThreshold);
+        String p = period == null ? "all" : period;
+        return statsMapper.selectDishRanking(size, goodThreshold, p);
     }
 
     @Override

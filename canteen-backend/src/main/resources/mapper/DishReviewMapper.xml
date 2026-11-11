@@ -17,12 +17,20 @@
             r.content,
             r.anonymous,
             r.status,
+            r.merchant_reply AS merchantReply,
+            r.merchant_reply_time AS merchantReplyTime,
+            r.handled,
+            r.like_count AS likeCount,
+            r.view_count AS viewCount,
+            r.reply_count AS replyCount,
             <choose>
                 <when test="currentUserId != null">
-                    (r.user_id = #{currentUserId}) AS mine
+                    (r.user_id = #{currentUserId}) AS mine,
+                    EXISTS(SELECT 1 FROM review_like rl WHERE rl.review_id = r.id AND rl.user_id = #{currentUserId}) AS liked
                 </when>
                 <otherwise>
-                    0 AS mine
+                    0 AS mine,
+                    0 AS liked
                 </otherwise>
             </choose>
             ,
@@ -51,7 +59,23 @@
             AND (r.content LIKE CONCAT('%', #{query.keyword}, '%')
                  OR d.name LIKE CONCAT('%', #{query.keyword}, '%'))
         </if>
-        ORDER BY r.create_time DESC
+        <choose>
+            <when test="query.sort == 'like_desc'">
+                ORDER BY r.like_count DESC, r.create_time DESC
+            </when>
+            <when test="query.sort == 'view_desc'">
+                ORDER BY r.view_count DESC, r.create_time DESC
+            </when>
+            <when test="query.sort == 'rating_desc'">
+                ORDER BY r.rating DESC, r.create_time DESC
+            </when>
+            <when test="query.sort == 'rating_asc'">
+                ORDER BY r.rating ASC, r.create_time DESC
+            </when>
+            <otherwise>
+                ORDER BY r.create_time DESC
+            </otherwise>
+        </choose>
     </select>
 
     <select id="selectMerchantReviewPage" resultType="com.qmz.canteen.vo.ReviewVO">
@@ -72,6 +96,9 @@
             r.merchant_reply AS merchantReply,
             r.merchant_reply_time AS merchantReplyTime,
             r.handled,
+            r.like_count AS likeCount,
+            r.view_count AS viewCount,
+            r.reply_count AS replyCount,
             r.create_time AS createTime
         FROM dish_review r
         INNER JOIN dish d ON r.dish_id = d.id AND d.deleted = 0
@@ -91,6 +118,12 @@
             </when>
             <when test="query.sort == 'rating_asc'">
                 ORDER BY r.rating ASC, r.create_time DESC
+            </when>
+            <when test="query.sort == 'like_desc'">
+                ORDER BY r.like_count DESC, r.create_time DESC
+            </when>
+            <when test="query.sort == 'view_desc'">
+                ORDER BY r.view_count DESC, r.create_time DESC
             </when>
             <otherwise>
                 ORDER BY r.create_time DESC

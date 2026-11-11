@@ -12,11 +12,13 @@ import com.qmz.canteen.entity.DishReview;
 import com.qmz.canteen.entity.MerchantMessage;
 import com.qmz.canteen.entity.MerchantTodo;
 import com.qmz.canteen.entity.Stall;
+import com.qmz.canteen.entity.User;
 import com.qmz.canteen.mapper.DishMapper;
 import com.qmz.canteen.mapper.DishReviewMapper;
 import com.qmz.canteen.mapper.MerchantMessageMapper;
 import com.qmz.canteen.mapper.MerchantTodoMapper;
 import com.qmz.canteen.mapper.StallMapper;
+import com.qmz.canteen.mapper.UserMapper;
 import com.qmz.canteen.service.MerchantService;
 import com.qmz.canteen.vo.MerchantMessageVO;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,7 @@ public class MerchantServiceImpl implements MerchantService {
     private final DishMapper dishMapper;
     private final DishReviewMapper dishReviewMapper;
     private final StallMapper stallMapper;
+    private final UserMapper userMapper;
 
     @Override
     public List<MerchantTodo> listTodos(Long stallId) {
@@ -167,6 +170,15 @@ public class MerchantServiceImpl implements MerchantService {
             vo.setWindowNo(stall.getWindowNo());
             vo.setCoverImage(stall.getCoverImage());
             vo.setZone(formatZone(stall));
+            // 优先展示商家账号头像（logo），而不是档口门面图
+            User merchant = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                    .eq(User::getStallId, m.getStallId())
+                    .eq(User::getRole, "MERCHANT")
+                    .eq(User::getDeleted, 0)
+                    .last("LIMIT 1"));
+            if (merchant != null) {
+                vo.setMerchantAvatar(merchant.getAvatar());
+            }
         }
         vo.setContent(m.getContent());
         vo.setStatus(m.getStatus());

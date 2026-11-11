@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted , onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listTodos, doneTodo } from '@/api/merchant'
 
@@ -48,6 +48,7 @@ async function handleDone(t) {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>

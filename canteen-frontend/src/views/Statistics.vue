@@ -150,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import EChart from '@/components/EChart.vue'
 import BannerCarousel from '@/components/BannerCarousel.vue'
 import ScatterBoard from '@/components/ScatterBoard.vue'
@@ -369,6 +369,8 @@ async function loadAll() {
 }
 
 onMounted(loadAll)
+// keep-alive 缓存后回访刷新看板数据
+onActivated(loadAll)
 </script>
 
 <style scoped>

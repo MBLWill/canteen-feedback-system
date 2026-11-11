@@ -14,7 +14,7 @@ public interface StatsService {
 
     OverviewVO overview();
 
-    List<DishRankVO> dishRanking(Long limit);
+    List<DishRankVO> dishRanking(Long limit, String period);
 
     List<StallGoodRateVO> stallGoodRate();
 

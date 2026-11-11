@@ -8,21 +8,19 @@
       </el-button>
     </div>
 
-    <el-row :gutter="16">
-      <el-col v-for="dish in list" :key="dish.id" :xs="24" :sm="12" :md="8" :lg="6" style="margin-bottom: 16px">
-        <div class="favorite-item">
-          <el-checkbox v-model="selectedIds" :value="dish.id" class="favorite-check" @click.stop />
-          <DishCard :dish="dish" />
-        </div>
-      </el-col>
-    </el-row>
+    <div class="favorite-grid">
+      <div v-for="dish in list" :key="dish.id" class="favorite-item">
+        <el-checkbox v-model="selectedIds" :value="dish.id" class="favorite-check" @click.stop />
+        <DishCard :dish="dish" />
+      </div>
+    </div>
 
     <el-empty v-if="!list.length && !loading" description="还没有收藏的菜品～" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import DishCard from '@/components/DishCard.vue'
 import { listFavorites, removeFavorite } from '@/api/favorite'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -73,6 +71,7 @@ async function handleBatchCancel() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>
@@ -92,6 +91,12 @@ onMounted(loadData)
 
 .favorite-item {
   position: relative;
+}
+
+.favorite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
 }
 
 .favorite-check {

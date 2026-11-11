@@ -5,6 +5,10 @@
       {{ fromOrders ? '返回我的订单' : '返回菜品列表' }}
     </el-button>
 
+    <el-empty v-if="!detail && !loading" description="菜品不存在或已下架">
+      <el-button type="primary" @click="goBack">返回菜品列表</el-button>
+    </el-empty>
+
     <el-card shadow="never" class="page-card" style="margin-bottom: 16px" v-if="detail">
       <el-row :gutter="24">
         <el-col :span="7">
@@ -63,32 +67,8 @@
       </el-row>
     </el-card>
 
-    <!-- 我要评价 -->
-    <el-card shadow="never" class="page-card" style="margin-bottom: 16px">
-      <template #header><span style="font-weight: 600">✍️ 我要评价</span></template>
-      <el-form ref="reviewFormRef" :model="reviewForm" :rules="reviewRules" label-position="top">
-        <el-form-item label="评分" prop="rating">
-          <StarRating v-model:value="reviewForm.rating" />
-        </el-form-item>
-        <el-form-item label="评价内容" prop="content">
-          <el-input
-            v-model="reviewForm.content"
-            type="textarea"
-            :rows="3"
-            maxlength="500"
-            show-word-limit
-            placeholder="说说这道菜的口味、分量、性价比……"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="reviewForm.anonymous">匿名评价</el-checkbox>
-        </el-form-item>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">提交评价</el-button>
-      </el-form>
-    </el-card>
-
-    <!-- 评分分布 + 全部评价 -->
-    <el-row :gutter="16">
+    <!-- 评分分布 + 我要评价 -->
+    <el-row :gutter="16" v-if="detail" style="margin-bottom: 16px">
       <el-col :span="8">
         <el-card shadow="never" class="page-card">
           <template #header><span style="font-weight: 600">评分分布</span></template>
@@ -97,30 +77,128 @@
       </el-col>
       <el-col :span="16">
         <el-card shadow="never" class="page-card">
-          <template #header><span style="font-weight: 600">最新评价</span></template>
-          <el-empty v-if="!detail.latestReviews?.length" description="还没有人评价，来做第一个吧～" />
-          <div v-for="r in detail.latestReviews || []" :key="r.id" class="review-item">
-            <div style="display: flex; justify-content: space-between">
-              <span style="font-weight: 600">{{ r.userName }}</span>
-              <StarRating :value="r.rating" readonly />
-            </div>
-            <div class="muted" style="font-size: 12px; margin: 4px 0">{{ r.createTime }}</div>
-            <div>{{ r.content || '（该用户未填写文字评价）' }}</div>
-          </div>
+          <template #header><span style="font-weight: 600">✍️ 我要评价</span></template>
+          <el-alert
+            v-if="!detail.canReview"
+            type="info"
+            :closable="false"
+            show-icon
+            title="购买过该菜品后才能评价哦"
+            description="先去下单品尝一下，再来分享你的真实感受吧～"
+          />
+          <el-form v-else ref="reviewFormRef" :model="reviewForm" :rules="reviewRules" label-position="top">
+            <el-form-item label="评分" prop="rating">
+              <StarRating v-model:value="reviewForm.rating" />
+            </el-form-item>
+            <el-form-item label="评价内容" prop="content">
+              <el-input
+                v-model="reviewForm.content"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+                placeholder="说说这道菜的口味、分量、性价比……"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-checkbox v-model="reviewForm.anonymous">匿名评价</el-checkbox>
+            </el-form-item>
+            <el-button type="primary" :loading="submitting" @click="handleSubmit">提交评价</el-button>
+          </el-form>
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 全部评价：单独一排 -->
+    <el-card shadow="never" class="page-card" v-if="detail">
+      <template #header>
+        <span style="font-weight: 600">全部评价（{{ detail.latestReviews?.length || 0 }}）</span>
+      </template>
+      <el-empty v-if="!detail.latestReviews?.length" description="还没有人评价，来做第一个吧～" />
+      <div v-for="r in detail.latestReviews || []" :key="r.id" :id="'review-' + r.id" class="review-item">
+        <div class="review-head">
+          <img
+            v-if="r.avatar"
+            class="review-avatar"
+            :src="r.avatar"
+            :alt="r.userName"
+            @error="$event.target.style.display = 'none'"
+          >
+          <div v-else class="review-avatar review-avatar--fallback">{{ (r.userName || '客').slice(0, 1) }}</div>
+          <div class="review-head-info">
+            <div class="review-name">
+              {{ r.userName }}
+              <span v-if="r.mine" class="mine-tag">我的评价</span>
+            </div>
+            <div class="review-time">{{ r.createTime }}</div>
+          </div>
+          <div class="review-stars">
+            <StarRating :value="r.rating" readonly />
+          </div>
+        </div>
+
+        <div class="review-content">{{ r.content || '（该用户未填写文字评价）' }}</div>
+
+        <div v-if="r.merchantReply" class="merchant-reply">
+          <span class="merchant-reply-tag">商家回复</span>{{ r.merchantReply }}
+        </div>
+
+        <div class="review-actions">
+          <button
+            class="review-action-btn"
+            :class="{ active: r.liked }"
+            @click="toggleLike(r)"
+          >
+            👍 {{ r.liked ? '已赞' : '点赞' }}<span v-if="r.likeCount"> {{ r.likeCount }}</span>
+          </button>
+          <span class="review-action-meta">👁 浏览 {{ r.viewCount || 0 }}</span>
+          <button class="review-action-btn" @click="toggleReplies(r)">
+            💬 回复 {{ (r.replyCount || 0) + (r.merchantReply ? 1 : 0) }}
+          </button>
+        </div>
+
+        <!-- 回复列表 -->
+        <div v-if="r.showReplies" class="reply-list">
+          <div v-if="!r.replies || !r.replies.length" class="muted" style="font-size: 12px; padding: 6px 0">
+            还没有回复，来问问他吧～
+          </div>
+          <div v-for="rp in r.replies" :key="rp.id" :id="'reply-' + rp.id" class="reply-item">
+            <img
+              v-if="rp.avatar"
+              class="reply-avatar"
+              :src="rp.avatar"
+              @error="$event.target.style.display = 'none'"
+            >
+            <div v-else class="reply-avatar reply-avatar--fallback">{{ (rp.userName || '客').slice(0, 1) }}</div>
+            <div class="reply-body">
+              <span class="reply-name">{{ rp.userName }}<span v-if="rp.mine" class="mine-tag">我</span></span>
+              <span class="reply-content">{{ rp.content }}</span>
+            </div>
+          </div>
+          <div class="reply-input-row">
+            <el-input
+              v-model="r.replyDraft"
+              size="small"
+              maxlength="500"
+              placeholder="写下你的追问或回答…"
+              @keyup.enter="doReply(r)"
+            />
+            <el-button size="small" type="primary" :loading="r.replying" @click="doReply(r)">回复</el-button>
+          </div>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import EChart from '@/components/EChart.vue'
 import StarRating from '@/components/StarRating.vue'
 import { getDishDetail } from '@/api/dish'
-import { submitReview as submitReviewApi } from '@/api/review'
+import { submitReview as submitReviewApi, likeReview, studentReply, getReplies } from '@/api/review'
 import { addFavorite, removeFavorite } from '@/api/favorite'
 import { addToCart } from '@/api/cart'
 import { coverGradient } from '@/utils/dishImage'
@@ -175,8 +253,43 @@ async function loadDetail() {
   try {
     const res = await getDishDetail(route.params.id)
     detail.value = res.data
+    // 给每条评价挂上交互用的本地状态
+    ;(detail.value.latestReviews || []).forEach(r => {
+      r.showReplies = false
+      r.replies = []
+      r.replyDraft = ''
+      r.replying = false
+    })
+    highlightTarget()
+  } catch {
+    detail.value = null
   } finally {
     loading.value = false
+  }
+}
+
+// 从通知跳进来时，自动展开并高亮定位到指定评价/回复（?review=评价ID&reply=回复ID）
+async function highlightTarget() {
+  const reviewId = Number(route.query.review)
+  const replyId = Number(route.query.reply)
+  if (!reviewId) return
+  await nextTick()
+  const r = (detail.value?.latestReviews || []).find(x => x.id === reviewId)
+  if (!r) return
+  r.showReplies = true
+  try {
+    const res = await getReplies(r.id)
+    r.replies = res.data || []
+  } catch {
+    r.replies = []
+  }
+  await nextTick()
+  // 优先定位具体回复，否则定位整条评价
+  const el = document.getElementById(replyId ? `reply-${replyId}` : `review-${reviewId}`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('flash-highlight')
+    setTimeout(() => el.classList.remove('flash-highlight'), 2400)
   }
 }
 
@@ -223,18 +336,65 @@ async function handleSubmit() {
   }
 }
 
+async function toggleLike(r) {
+  try {
+    const res = await likeReview(r.id)
+    const data = res.data || {}
+    r.liked = data.liked
+    r.likeCount = data.likeCount
+  } catch {
+    // 请求层已统一提示
+  }
+}
+
+async function toggleReplies(r) {
+  r.showReplies = !r.showReplies
+  if (r.showReplies) {
+    try {
+      const res = await getReplies(r.id)
+      r.replies = res.data || []
+    } catch {
+      r.replies = []
+    }
+  }
+}
+
+async function doReply(r) {
+  const content = (r.replyDraft || '').trim()
+  if (!content) {
+    ElMessage.warning('回复内容不能为空')
+    return
+  }
+  r.replying = true
+  try {
+    await studentReply(r.id, { content })
+    r.replyDraft = ''
+    const res = await getReplies(r.id)
+    r.replies = res.data || []
+    r.replyCount = (r.replyCount || 0) + 1
+  } finally {
+    r.replying = false
+  }
+}
+
 onMounted(loadDetail)
 
-// 页面被 keep-alive 缓存复用，路由参数变化时必须重新加载
-watch(() => route.params.id, (id) => {
-  if (!id) return
-  reviewForm.dishId = Number(id)
-  reviewForm.content = ''
-  broken.value = false
-  loadDetail()
+watch(
+  () => (route.name === 'DishDetail' ? route.params.id : null),
+  (id) => {
+    if (!id) return
+    reviewForm.dishId = Number(id)
+    reviewForm.content = ''
+    broken.value = false
+    loadDetail()
+  }
+)
+
+// 已在详情页内时，从通知再次跳转到同一菜品（仅 query 变化）也要重新定位高亮
+watch(() => [route.query.review, route.query.reply], () => {
+  highlightTarget()
 })
 
-// 始终回到当前菜品所属档口的列表，避免 history.back 退回上一道菜
 const fromOrders = computed(() => route.query.from === 'orders')
 
 function goBack() {
@@ -296,11 +456,192 @@ function goBack() {
 }
 
 .review-item {
-  padding: 12px 0;
+  padding: 16px 0;
   border-bottom: 1px solid #f0f1f3;
 }
 
 .review-item:last-child {
   border-bottom: none;
+}
+
+/* 从通知定位跳转时的高亮闪烁 */
+.flash-highlight {
+  animation: review-flash 1.6s ease;
+  border-radius: 8px;
+}
+
+@keyframes review-flash {
+  0%, 55% {
+    background: var(--brand-soft);
+    box-shadow: 0 0 0 3px var(--brand-line);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.review-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f3f4f6;
+}
+
+.review-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+}
+
+.review-head-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.review-time {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.mine-tag {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.review-content {
+  margin: 10px 0 8px;
+  font-size: 14px;
+  color: var(--text-1);
+  line-height: 1.6;
+}
+
+.merchant-reply {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--brand-soft);
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.merchant-reply-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--brand);
+}
+
+.review-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.review-action-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.review-action-btn:hover {
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.review-action-btn.active {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.review-action-meta {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.reply-list {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.reply-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.reply-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.reply-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+}
+
+.reply-body {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.reply-name {
+  font-weight: 600;
+  color: var(--text-1);
+  margin-right: 6px;
+}
+
+.reply-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
 </style>

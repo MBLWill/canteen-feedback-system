@@ -118,6 +118,8 @@ async function addCart(item) {
     await addToCart(item.id, 1)
     window.dispatchEvent(new CustomEvent('canteen:cart-changed'))
     ElMessage.success(`已加入购物车：${item.title}`)
+    // 加购成功后直接打开购物车抽屉，让用户立刻看到已加购的商品
+    cartStore.openDrawer()
   } catch {
     // 请求层已统一弹出错误提示，这里保持静默
   } finally {

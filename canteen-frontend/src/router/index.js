@@ -1,6 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '@/api/request'
 
+const USER_KEY = 'canteen_user'
+
+/** 从本地缓存读取当前登录用户角色（router 初始化早于 Pinia，不能直接用 store） */
+function getRole() {
+  try {
+    const u = JSON.parse(localStorage.getItem(USER_KEY) || 'null')
+    return u && u.role ? u.role : null
+  } catch {
+    return null
+  }
+}
+
 const routes = [
   {
     path: '/login',
@@ -18,6 +30,7 @@ const routes = [
       { path: 'stalls/south', redirect: '/dishes?area=south&floor=1', meta: { hidden: true } },
       { path: 'stalls/north', redirect: '/dishes?area=north&floor=1', meta: { hidden: true } },
       { path: 'dishes/:id', name: 'DishDetail', component: () => import('@/views/DishDetail.vue'), meta: { hidden: true, title: '菜品详情' } },
+      { path: 'stalls/:id', name: 'StallDetail', component: () => import('@/views/StallDetail.vue'), meta: { hidden: true, title: '档口详情' } },
       { path: 'my/orders', name: 'MyOrders', component: () => import('@/views/MyOrders.vue'), meta: { title: '我的订单', icon: 'List' } },
       { path: 'my/reviews', name: 'MyReviews', component: () => import('@/views/MyReviews.vue'), meta: { title: '我的评价', icon: 'EditPen' } },
       { path: 'my/favorites', name: 'MyFavorites', component: () => import('@/views/MyFavorites.vue'), meta: { title: '我的收藏', icon: 'Star' } },
@@ -58,6 +71,14 @@ router.beforeEach((to, from, next) => {
   }
   if (!getToken()) {
     return next({ path: '/login', query: { redirect: to.fullPath } })
+  }
+  // 角色校验：防止学生/商家/管理员跨角色 URL 直访（侧边栏只是隐藏菜单，不是权限隔离）
+  const role = getRole()
+  if (to.meta.admin && role !== 'ADMIN') {
+    return next({ path: '/dashboard' })
+  }
+  if (to.meta.merchant && role !== 'MERCHANT') {
+    return next({ path: '/dashboard' })
   }
   next()
 })

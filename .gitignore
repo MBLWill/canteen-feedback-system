@@ -16,6 +16,9 @@ scripts/orders_and_sales.sql
 scripts/sales_only.sql
 scripts/backup_before_regenerate.sql
 
-# 原始素材目录（已复制到前端 public）
+# 原始素材目录（已复制到前端 public，仅忽略仓库根目录下同名目录）
 avatar/
 gourmet food/
+/AI/
+/Merchant/
+/logo/

@@ -95,7 +95,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, computed, nextTick } from 'vue'
+import { onMounted, reactive, ref, computed, nextTick, onActivated, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createFaq, deleteFaq, getFaqs, updateFaq } from '@/api/chat'
@@ -237,13 +237,23 @@ onMounted(async () => {
   await loadData()
   await nextTick()
   bind(wrapRef.value)
-  // 从问答日志页“补录为 FAQ”跳转过来时，预填未命中的提问
+  presetFromQuery()
+})
+onActivated(loadData)
+
+// 从问答日志页「补录为 FAQ」跳转过来时，预填未命中的提问（watch 保证 keep-alive 二次跳转也生效）
+watch(
+  () => route.query.question,
+  () => presetFromQuery()
+)
+
+function presetFromQuery() {
   const preset = route.query.question
   if (preset) {
     Object.assign(form, emptyForm(), { question: preset })
     dialogVisible.value = true
   }
-})
+}
 </script>
 
 <style scoped>

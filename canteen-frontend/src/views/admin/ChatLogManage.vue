@@ -71,7 +71,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, onActivated, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getChatLogs, getChatMissTop, getChatStats } from '@/api/chat'
 
@@ -121,6 +121,13 @@ function toFaq(row) {
 }
 
 onMounted(() => {
+  loadStats()
+  loadMiss()
+  loadLogs()
+})
+
+// keep-alive 缓存后回访刷新问答记录
+onActivated(() => {
   loadStats()
   loadMiss()
   loadLogs()

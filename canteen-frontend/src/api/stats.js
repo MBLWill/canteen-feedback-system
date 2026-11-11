@@ -4,8 +4,8 @@ export function getOverview() {
   return request.get('/stats/overview')
 }
 
-export function getDishRanking(limit = 10) {
-  return request.get('/stats/dish-ranking', { params: { limit } })
+export function getDishRanking(limit = 10, period = 'all') {
+  return request.get('/stats/dish-ranking', { params: { limit, period } })
 }
 
 export function getStallGoodRate() {

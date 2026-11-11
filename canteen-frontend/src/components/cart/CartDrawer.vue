@@ -355,7 +355,11 @@ function goDishes() {
 
 const openDrawer = () => cartStore.openDrawer()
 const closeDrawer = () => cartStore.closeDrawer()
-const onCartChanged = () => cartStore.refresh()
+const onCartChanged = () => {
+  cartStore.refresh()
+  // 抽屉已经打开时，也要重新拉取列表，否则 AI 加购后抽屉里看不到新加的商品
+  if (cartStore.drawerOpen) loadCart()
+}
 
 watch(() => cartStore.drawerOpen, value => {
   if (value) loadCart()

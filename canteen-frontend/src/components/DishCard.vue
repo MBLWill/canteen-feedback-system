@@ -12,7 +12,9 @@
       >
       <span v-else class="dish-initial">{{ dish.name.slice(0, 1) }}</span>
 
-      <span v-if="isHot" class="dish-hot">人气推荐</span>
+      <div v-if="dishTags.length" class="dish-tags">
+        <span v-for="t in dishTags" :key="t.text" class="dish-tag" :class="'tag-' + t.type">{{ t.text }}</span>
+      </div>
       <span v-if="dish.avgRating" class="dish-score">{{ Number(dish.avgRating).toFixed(1) }}</span>
     </div>
 
@@ -58,7 +60,9 @@ import { coverGradient } from '@/utils/dishImage'
 const props = defineProps({
   dish: { type: Object, required: true },
   // 美食广场「罗列菜品」去掉加购按钮；收藏页等处仍可保留
-  showAdd: { type: Boolean, default: true }
+  showAdd: { type: Boolean, default: true },
+  // 美食广场点菜品跳「档口详情页」（高亮该菜品）；其他页面跳菜品详情
+  goStall: { type: Boolean, default: false }
 })
 
 const router = useRouter()
@@ -77,8 +81,16 @@ const priceDecimal = computed(() => {
 const ratingText = computed(() => (props.dish.avgRating
   ? Number(props.dish.avgRating).toFixed(1)
   : '—'))
-// 评分达到好评阈值（4）即展示「人气推荐」标签
-const isHot = computed(() => (props.dish.avgRating != null && Number(props.dish.avgRating) >= 4))
+// 菜品特色标签：招牌 / 好评如潮 / 热销 / 新品（与档口详情页一致，最多 2 个）
+const dishTags = computed(() => {
+  const d = props.dish || {}
+  const tags = []
+  if (d.featured === 1) tags.push({ text: '招牌', type: 'gold' })
+  if (d.goodRate != null && d.goodRate >= 85 && d.reviewCount >= 5) tags.push({ text: '好评如潮', type: 'green' })
+  if (d.salesCount >= 200) tags.push({ text: '热销', type: 'orange' })
+  else if (d.reviewCount != null && d.reviewCount <= 3) tags.push({ text: '新品', type: 'blue' })
+  return tags.slice(0, 2)
+})
 const subtitle = computed(() => {
   if (props.dish.description) return props.dish.description
   if (props.dish.category) return `${props.dish.category} · 招牌美味`
@@ -97,6 +109,11 @@ async function handleAdd() {
 }
 
 function goDetail() {
+  // 美食广场：点菜品先跳到该菜品所属档口的详情页，高亮这道菜；再点菜品才进菜品详情
+  if (props.goStall && props.dish.stallId) {
+    router.push(`/stalls/${props.dish.stallId}?highlight=${props.dish.id}`)
+    return
+  }
   router.push(`/dishes/${props.dish.id}`)
 }
 </script>
@@ -148,21 +165,33 @@ function goDetail() {
   z-index: 1;
 }
 
-.dish-hot {
+.dish-tags {
   position: absolute;
   top: 8px;
   left: 8px;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: calc(100% - 48px);
+}
+
+.dish-tag {
   height: 20px;
-  padding: 0 8px;
+  padding: 0 7px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #ffb400, #ff7a00);
-  color: #fff;
   font-size: 11px;
   font-weight: 700;
   line-height: 20px;
+  color: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
 }
+
+.dish-tag.tag-gold { background: linear-gradient(135deg, #ffb400, #ff7a00); }
+.dish-tag.tag-green { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.dish-tag.tag-orange { background: linear-gradient(135deg, #fb7185, #e11d48); }
+.dish-tag.tag-blue { background: linear-gradient(135deg, #38bdf8, #0284c7); }
 
 .dish-score {
   position: absolute;

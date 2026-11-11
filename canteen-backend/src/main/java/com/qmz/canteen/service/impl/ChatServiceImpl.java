@@ -41,6 +41,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -76,6 +77,9 @@ public class ChatServiceImpl implements ChatService {
                     "档口排行", "最受欢迎", "哪家好吃", "哪个最好", "top3", "窗口排行"}),
             new IntentDef("complaint", "投诉建议", new String[]{"投诉", "举报", "反馈", "意见", "建议", "吐槽", "不满"}),
             new IntentDef("order", "下单订餐", new String[]{"预约", "订餐", "下单", "购物车", "加购", "结算", "支付", "取餐", "留饭", "订饭", "带饭"}),
+            new IntentDef("randomOrder", "随机下单", new String[]{"随机下", "随便下", "随机来", "随便来", "随机点", "随便点",
+                    "随机选", "随便选", "随机整", "随便整", "来几道", "来几样", "点几道", "点几样", "下几道", "下几样",
+                    "随便来几", "随机来几", "随机推荐", "随便推荐", "随机来两", "随便来两", "帮我点", "帮我下"}),
             new IntentDef("review", "评价打分", new String[]{"评价", "打分", "评分", "星级", "好评", "怎么评"}),
             new IntentDef("greeting", "打招呼", new String[]{"你好", "您好", "hi", "hello", "在吗", "嗨"}),
             new IntentDef("help", "功能说明", new String[]{"你能", "会什么", "能做什么", "帮助", "怎么用", "功能", "可以做什么"})
@@ -414,6 +418,15 @@ public class ChatServiceImpl implements ChatService {
         if (intent != null) {
             return answerByIntent(intent.code, norm);
         }
+        // 越权/危险操作：礼貌拒绝，不落到「还没学会」的兜底
+        if (containsAny(norm, "删除", "删掉", "退款", "退钱", "改价", "改价格", "封禁", "注销", "禁言",
+                "删别人", "改别人", "查别人", "看别人", "黑别人", "刷差评")) {
+            ChatAnswerVO answer = base("reject", "越权操作", "text", true);
+            answer.setText("这个操作我帮不了哦，需要到对应的页面自行处理。"
+                    + "我可以帮你查菜品、档口、推荐和下单这些事。");
+            answer.setQuickReplies(List.of("今天有什么推荐", "宫保鸡丁多少钱", "怎么投诉某个窗口"));
+            return answer;
+        }
         return fallback("这个问题我还没学会，换个问法试试？");
     }
 
@@ -662,6 +675,24 @@ public class ChatServiceImpl implements ChatService {
                 answer.setText("可以到「留言反馈」提交：类型选投诉或建议，关联档口选对应窗口，写清时间窗口号和具体问题，管理员 1-3 个工作日内回复。吃到异物请保留证据并当日提交。");
                 answer.setCanFeedback(true);
                 answer.setQuickReplies(List.of("投诉多久回复", "吃到异物怎么办", "反馈可以匿名吗"));
+                return answer;
+            }
+            case "randomOrder" -> {
+                ChatAnswerVO answer = base(code, "随机下单", "rankList", true);
+                List<DishBriefVO> pool = new ArrayList<>(index().dishes.stream()
+                        .filter(d -> d.getAvgRating() != null && d.getAvgRating() >= 3.5)
+                        .toList());
+                if (pool.size() < 3) {
+                    pool = new ArrayList<>(index().dishes);
+                }
+                Collections.shuffle(pool);
+                List<DishBriefVO> picked = pool.stream().limit(3).toList();
+                answer.setText(picked.isEmpty()
+                        ? "暂时没有可推荐的菜品，稍后再来看看。"
+                        : "随机给你挑了几道评分不错的菜，点卡片就能加入购物车：");
+                answer.setItems(toDishItems(picked));
+                answer.setSources(List.of("菜品库 · 随机推荐"));
+                answer.setQuickReplies(List.of("再来几道", "今天有什么推荐", "怎么下单订餐"));
                 return answer;
             }
             case "order" -> {

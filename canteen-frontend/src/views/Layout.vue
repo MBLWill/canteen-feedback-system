@@ -116,6 +116,39 @@
         </div>
 
         <div class="header-right">
+          <el-popover placement="bottom-end" :width="330" trigger="click" @show="loadNotifications">
+            <template #reference>
+              <div class="notice-btn">
+                <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+                  <el-icon :size="20"><Bell /></el-icon>
+                </el-badge>
+              </div>
+            </template>
+            <div class="notice-panel">
+              <div class="notice-head">
+                <span class="notice-title">消息通知</span>
+                <el-button v-if="unreadCount" link type="primary" size="small" @click="readAll">全部已读</el-button>
+              </div>
+              <el-empty v-if="!notifications.length" description="暂无消息" :image-size="56" />
+              <div v-else class="notice-list">
+                <div
+                  v-for="n in notifications"
+                  :key="n.id"
+                  class="notice-item"
+                  :class="{ unread: !n.isRead }"
+                  @click="openNotice(n)"
+                >
+                  <span class="notice-icon">{{ typeIcon(n.type) }}</span>
+                  <div class="notice-body">
+                    <div class="notice-content">{{ n.content }}</div>
+                    <div class="notice-time">{{ n.createTime }}</div>
+                  </div>
+                  <span v-if="!n.isRead" class="notice-dot"></span>
+                </div>
+              </div>
+            </div>
+          </el-popover>
+
           <el-tag
             :type="userStore.isAdmin ? 'danger' : 'success'"
             size="small"
@@ -128,7 +161,7 @@
 
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-chip">
-              <div class="avatar">
+              <div class="avatar" :class="{ 'avatar--logo': userStore.isMerchant }">
                 <img v-if="userStore.userInfo?.avatar" :src="userStore.userInfo.avatar" class="avatar-img" />
                 <template v-else>{{ avatarText }}</template>
               </div>
@@ -172,7 +205,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
@@ -180,10 +213,57 @@ import ChatWidget from '@/components/ChatWidget.vue'
 import CartBar from '@/components/cart/CartBar.vue'
 import CartDrawer from '@/components/cart/CartDrawer.vue'
 import PayDialog from '@/components/cart/PayDialog.vue'
+import { listNotifications, unreadCount as fetchUnread, readAllNotifications } from '@/api/notification'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+
+const unreadCount = ref(0)
+const notifications = ref([])
+
+async function loadUnread() {
+  try {
+    const res = await fetchUnread()
+    unreadCount.value = res.data?.count || 0
+  } catch {
+    // 忽略：未登录或接口异常时不显示红点
+  }
+}
+
+async function loadNotifications() {
+  try {
+    const res = await listNotifications(20)
+    notifications.value = res.data || []
+  } catch {
+    notifications.value = []
+  }
+}
+
+async function readAll() {
+  try {
+    await readAllNotifications()
+    unreadCount.value = 0
+    notifications.value = notifications.value.map(n => ({ ...n, isRead: 1 }))
+  } catch {
+    // 忽略
+  }
+}
+
+function typeIcon(type) {
+  return { LIKE: '👍', REPLY: '💬', MERCHANT_REPLY: '🏪' }[type] || '🔔'
+}
+
+function openNotice(n) {
+  if (!n.dishId) return
+  // 带 review / reply 定位参数跳菜品详情，详情页会自动展开并高亮对应评价/回复
+  const query = {}
+  if (n.reviewId) query.review = n.reviewId
+  if (n.replyId) query.reply = n.replyId
+  router.push({ path: `/dishes/${n.dishId}`, query })
+}
+
+onMounted(loadUnread)
 
 // 管理员侧边栏切换：'admin' 后台管理（默认），'daily' 日常使用（与学生端一致）
 const adminMode = ref('admin')
@@ -396,8 +476,105 @@ function doLogout() {
   gap: 4px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .role-tag {
-  margin-right: 14px;
+  flex-shrink: 0;
+}
+
+.notice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--text-2);
+  transition: background 0.2s ease;
+}
+
+.notice-btn:hover {
+  background: #fff4ec;
+  color: var(--brand);
+}
+
+.notice-panel {
+  max-height: 360px;
+}
+
+.notice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.notice-title {
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.notice-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.notice-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.notice-item:hover {
+  background: #f8f9fa;
+}
+
+.notice-item.unread {
+  background: #fff8f0;
+}
+
+.notice-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.notice-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-content {
+  font-size: 13px;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice-time {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.notice-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  flex-shrink: 0;
 }
 
 .user-chip {
@@ -415,17 +592,18 @@ function doLogout() {
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ff9a4f, #ff6a00);
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(255, 106, 0, 0.25);
 }
 
@@ -433,6 +611,11 @@ function doLogout() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* 商家 logo 去背景后四周留白较多，等比放大填满圆形头像 */
+.avatar--logo .avatar-img {
+  transform: scale(1.28);
 }
 
 .nickname {

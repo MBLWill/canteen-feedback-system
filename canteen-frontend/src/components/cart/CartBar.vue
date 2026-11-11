@@ -70,7 +70,8 @@ onBeforeUnmount(() => {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 900;
+  /* 高于小助手窗口(1000)，低于购物车抽屉(1900)，保证加购后购物车栏不被小助手挡住 */
+  z-index: 1200;
   display: flex;
   align-items: center;
   height: 56px;

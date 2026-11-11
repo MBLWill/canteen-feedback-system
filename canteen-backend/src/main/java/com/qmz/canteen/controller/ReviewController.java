@@ -4,9 +4,11 @@ import com.qmz.canteen.common.PageResult;
 import com.qmz.canteen.common.Result;
 import com.qmz.canteen.dto.MerchantReviewReplyRequest;
 import com.qmz.canteen.dto.ReviewQuery;
+import com.qmz.canteen.dto.ReviewReplyRequest;
 import com.qmz.canteen.dto.ReviewRequest;
 import com.qmz.canteen.security.UserContext;
 import com.qmz.canteen.service.ReviewService;
+import com.qmz.canteen.vo.ReviewReplyVO;
 import com.qmz.canteen.vo.ReviewVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -23,6 +25,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 @Validated
 @RestController
@@ -79,5 +84,30 @@ public class ReviewController {
         UserContext.requireAdmin();
         reviewService.updateReviewStatus(id, status);
         return Result.success();
+    }
+
+    /** 点赞 / 取消点赞（学生端） */
+    @PostMapping("/{id}/like")
+    public Result<Map<String, Object>> like(@PathVariable @Positive(message = "评价ID不合法") Long id) {
+        return Result.success(reviewService.toggleLike(id, UserContext.getUserId()));
+    }
+
+    /** 学生对评价的追问 / 回答 */
+    @PostMapping("/{id}/student-reply")
+    public Result<Long> studentReply(@PathVariable @Positive(message = "评价ID不合法") Long id,
+                                     @RequestBody @Valid ReviewReplyRequest request) {
+        return Result.success(reviewService.replyReviewByStudent(id, UserContext.getUserId(), request.getContent()));
+    }
+
+    /** 查询某评价的学生回复列表 */
+    @GetMapping("/{id}/replies")
+    public Result<List<ReviewReplyVO>> replies(@PathVariable @Positive(message = "评价ID不合法") Long id) {
+        return Result.success(reviewService.listReplies(id, UserContext.getUserId()));
+    }
+
+    /** 是否可评价该菜品（需下过单） */
+    @GetMapping("/can-review")
+    public Result<Boolean> canReview(@RequestParam @Positive(message = "菜品ID不合法") Long dishId) {
+        return Result.success(reviewService.canReview(dishId, UserContext.getUserId()));
     }
 }

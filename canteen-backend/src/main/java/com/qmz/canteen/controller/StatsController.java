@@ -36,8 +36,9 @@ public class StatsController {
     @GetMapping("/dish-ranking")
     public Result<List<DishRankVO>> dishRanking(
             @RequestParam(defaultValue = "10") @Min(value = 1, message = "条数范围为1-50")
-            @Max(value = 50, message = "条数范围为1-50") Long limit) {
-        return Result.success(statsService.dishRanking(limit));
+            @Max(value = 50, message = "条数范围为1-50") Long limit,
+            @RequestParam(defaultValue = "all") String period) {
+        return Result.success(statsService.dishRanking(limit, period));
     }
 
     @GetMapping("/stall-good-rate")

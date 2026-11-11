@@ -164,7 +164,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted , onActivated } from 'vue'
 import EChart from '@/components/EChart.vue'
 import { getSalesOverview, getSalesSummary, getDailyIncome, getOrderAnalysis } from '@/api/sales'
 
@@ -340,6 +340,7 @@ async function loadOrderAnalysis() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>

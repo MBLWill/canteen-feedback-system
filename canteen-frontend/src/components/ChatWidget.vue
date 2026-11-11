@@ -136,9 +136,8 @@
       @mouseenter="onFabHover"
       @mouseleave="onFabLeave"
       @pointerdown="onFabDown"
-      @click="openPanel"
     >
-      <img :src="avatarByState" class="fab-img" alt="助手">
+      <img :src="avatarByState" class="fab-img" alt="助手" draggable="false">
       <span class="fab-pulse"></span>
     </button>
   </div>
@@ -149,6 +148,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import AnswerBubble from '@/components/chat/AnswerBubble.vue'
 import { askChat, askChatStream, getChatEngine, getChatSuggestions } from '@/api/chat'
 import { useUserStore } from '@/store/user'
+import { useCartStore } from '@/store/cart'
 
 const EDGE = 12
 /** 面板尺寸：默认高窄窗口，与之前保持一致 */
@@ -157,6 +157,12 @@ const PANEL_W = 560
 const SUGGESTION_PAGE = 4
 
 const userStore = useUserStore()
+const cartStore = useCartStore()
+
+/** 本次回答是否发生了加购（后端会在动作里给出 /cart 入口），用于自动弹出购物车 */
+function hasCartAction(answer) {
+  return (answer?.actions || []).some(a => a && a.path === '/cart')
+}
 const isMerchant = computed(() => userStore.isMerchant)
 
 const open = ref(false)
@@ -203,7 +209,28 @@ const avatarByState = computed(() => {
 /* ---------------- 表情交互 ---------------- */
 function onFabHover() { if (!open.value) assistantMood.value = 'wink' }
 function onFabLeave() { if (!open.value) assistantMood.value = 'happy' }
-function onFabDown() { assistantMood.value = 'surprise' }
+function onFabDown(e) {
+  assistantMood.value = 'surprise'
+  if (e.button !== undefined && e.button !== 0) return
+  // 阻止浏览器原生拖拽（img 默认可拖拽，会抢走 pointermove 导致拖不动/松手粘连）
+  e.preventDefault()
+  const el = e.currentTarget
+  // 悬浮球可拖动：记录起点，移动超过阈值视为拖动，否则视为点击打开面板
+  const rect = el.getBoundingClientRect()
+  if (fabPos.left == null) {
+    fabPos.left = rect.left
+    fabPos.top = rect.top
+  }
+  fabDrag = { sx: e.clientX, sy: e.clientY, ox: fabPos.left, oy: fabPos.top, moved: false }
+  // 指针捕获：即使鼠标移出元素/窗口，pointermove、pointerup 仍然派发到该元素，
+  // 避免「松手后还粘着鼠标」以及移出窗口丢失 pointerup。
+  try {
+    el.setPointerCapture?.(e.pointerId)
+  } catch { /* 老浏览器忽略 */ }
+  window.addEventListener('pointermove', onFabDrag)
+  window.addEventListener('pointerup', onFabUp)
+  window.addEventListener('pointercancel', onFabUp)
+}
 function onInputFocus() { if (!loading.value && assistantMood.value === 'happy') assistantMood.value = 'doubt' }
 function onInputBlur() { if (assistantMood.value === 'doubt') assistantMood.value = 'happy' }
 
@@ -241,6 +268,10 @@ const visibleSuggestions = computed(() => {
 
 const vp = reactive({ w: 1280, h: 800 })
 const panelPos = reactive({ x: 0, y: 0 })
+/** 悬浮球位置（left/top），null 表示默认右下角 */
+const fabPos = reactive({ left: null, top: null })
+const FAB_SIZE = 62
+let fabDrag = null
 
 /**
  * 等待时的趣味提示语。
@@ -310,7 +341,35 @@ const panelStyle = computed(() => {
   }
 })
 
-const fabStyle = computed(() => ({ right: '32px', bottom: '96px' }))
+const fabStyle = computed(() => {
+  if (fabPos.left == null) {
+    return { right: '32px', bottom: '96px' }
+  }
+  return { left: fabPos.left + 'px', top: fabPos.top + 'px', right: 'auto', bottom: 'auto' }
+})
+
+function onFabDrag(e) {
+  if (!fabDrag) return
+  e.preventDefault()
+  const dx = e.clientX - fabDrag.sx
+  const dy = e.clientY - fabDrag.sy
+  if (Math.abs(dx) + Math.abs(dy) > 5) fabDrag.moved = true
+  fabPos.left = Math.min(Math.max(fabDrag.ox + dx, 8), vp.w - FAB_SIZE - 8)
+  fabPos.top = Math.min(Math.max(fabDrag.oy + dy, 8), vp.h - FAB_SIZE - 8)
+}
+
+function onFabUp(e) {
+  window.removeEventListener('pointermove', onFabDrag)
+  window.removeEventListener('pointerup', onFabUp)
+  window.removeEventListener('pointercancel', onFabUp)
+  const moved = fabDrag ? fabDrag.moved : false
+  fabDrag = null
+  assistantMood.value = 'happy'
+  // 指针被系统取消（如切窗口）不算点击
+  if (e && e.type === 'pointercancel') return
+  // 没拖动（只是点一下）才打开面板，避免拖动结束误触
+  if (!moved) openPanel()
+}
 
 function onResize() {
   vp.w = window.innerWidth
@@ -346,6 +405,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('pointermove', onHeadDrag)
   window.removeEventListener('pointerup', onHeadUp)
+  window.removeEventListener('pointermove', onFabDrag)
+  window.removeEventListener('pointerup', onFabUp)
+  window.removeEventListener('pointercancel', onFabUp)
   window.removeEventListener('canteen:assistant-ask', onExternalAsk)
   stopThinking()
 })
@@ -468,6 +530,11 @@ async function send(text) {
             ...answer,
             text: answer.text || botMsg.answer.text
           }
+          // 本次回答包含加购（后端返回了「去购物车」动作）：刷新购物车角标并弹出购物车，让用户立刻看到
+          if (hasCartAction(answer)) {
+            window.dispatchEvent(new CustomEvent('canteen:cart-changed'))
+            cartStore.openDrawer()
+          }
         }
         botMsg.streaming = false
         scrollBottom()
@@ -484,6 +551,10 @@ async function send(text) {
       try {
         const res = await askChat(question, buildHistory())
         botMsg.answer = res.data
+        if (hasCartAction(res.data)) {
+          window.dispatchEvent(new CustomEvent('canteen:cart-changed'))
+          cartStore.openDrawer()
+        }
       } catch (e2) {
         botMsg.answer = {
           text: e2?.message || e?.message || '暂时没能回答，稍后再试试',
@@ -548,18 +619,27 @@ async function scrollBottom() {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: grab;
+  /* 关键：禁止浏览器接管触摸/拖拽手势，否则拖动时 pointermove 会被原生滚动或拖拽抢走 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
   box-shadow: 0 10px 26px rgba(255, 122, 26, 0.38), 0 2px 6px rgba(0, 0, 0, 0.1);
   transition: transform .2s ease, box-shadow .2s ease;
   z-index: 3;
   overflow: visible;
 }
+.chat-fab:active { cursor: grabbing; }
 .fab-img {
   width: 48px;
   height: 48px;
   object-fit: contain;
   border-radius: 50%;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 .chat-fab:hover {
   transform: scale(1.06);

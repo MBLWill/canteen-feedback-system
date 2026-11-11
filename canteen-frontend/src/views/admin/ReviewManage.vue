@@ -22,6 +22,13 @@
           <el-option label="已发布" :value="1" />
           <el-option label="已屏蔽" :value="2" />
         </el-select>
+        <el-select v-model="query.sort" placeholder="排序方式" clearable style="width: 140px" @change="loadData">
+          <el-option label="最新发布" value="time_desc" />
+          <el-option label="最高点赞" value="like_desc" />
+          <el-option label="最高浏览" value="view_desc" />
+          <el-option label="好评优先" value="rating_desc" />
+          <el-option label="差评优先" value="rating_asc" />
+        </el-select>
         <el-button type="primary" @click="loadData">查询</el-button>
       </div>
 
@@ -42,6 +49,29 @@
                 <span class="review-time">{{ r.createTime }}</span>
               </div>
               <div class="review-content">{{ r.content || '（未填写文字评价）' }}</div>
+              <div v-if="r.merchantReply" class="merchant-reply">
+                <span class="merchant-reply-tag">商家回复</span>{{ r.merchantReply }}
+              </div>
+              <div class="review-meta">
+                <span class="meta-item">👍 {{ r.likeCount || 0 }}</span>
+                <span class="meta-item">👁 {{ r.viewCount || 0 }}</span>
+                <span class="meta-item">💬 {{ replyTotal(r) }}</span>
+                <el-button link type="primary" size="small" @click="toggleReplies(r)">
+                  {{ r.showReplies ? '收起回复' : '查看回复' }}
+                </el-button>
+              </div>
+              <div v-if="r.showReplies" class="reply-list">
+                <div v-if="!r.replies || !r.replies.length" class="muted" style="font-size: 12px; padding: 4px 0">还没有学生回复</div>
+                <div v-for="rp in r.replies" :key="rp.id" class="reply-item">
+                  <img v-if="rp.avatar" :src="rp.avatar" class="reply-avatar" @error="$event.target.style.display='none'">
+                  <span v-else class="reply-avatar fallback">{{ (rp.userName || '学').slice(0, 1) }}</span>
+                  <div class="reply-body">
+                    <span class="reply-name">{{ rp.userName }}</span>
+                    <span class="reply-content">{{ rp.content }}</span>
+                    <span class="reply-time">{{ rp.createTime }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="review-side">
@@ -69,10 +99,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted , onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StarRating from '@/components/StarRating.vue'
-import { pageReviews, deleteReview, updateReviewStatus } from '@/api/review'
+import { pageReviews, deleteReview, updateReviewStatus, getReplies } from '@/api/review'
 
 const loading = ref(false)
 const records = ref([])
@@ -90,17 +120,34 @@ const isIndeterminate = computed(() => selectedIds.value.length > 0 && selectedI
 
 const selectedRows = computed(() => records.value.filter(r => selectedIds.value.includes(r.id)))
 
-const query = reactive({ current: 1, size: 10, keyword: '', rating: undefined, status: undefined })
+const query = reactive({ current: 1, size: 10, keyword: '', rating: undefined, status: undefined, sort: undefined })
 
 async function loadData() {
   loading.value = true
   try {
     const res = await pageReviews(query)
-    records.value = res.data.records
+    records.value = (res.data.records || []).map(r => ({ ...r, showReplies: false, replies: [] }))
     total.value = res.data.total
     selectedIds.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// 回复总数 = 学生回复数 + 商家回复（若有）
+function replyTotal(r) {
+  return (r.replyCount || 0) + (r.merchantReply ? 1 : 0)
+}
+
+async function toggleReplies(r) {
+  r.showReplies = !r.showReplies
+  if (r.showReplies) {
+    try {
+      const res = await getReplies(r.id)
+      r.replies = res.data || []
+    } catch {
+      r.replies = []
+    }
   }
 }
 
@@ -161,6 +208,7 @@ async function handleBatchDelete() {
 }
 
 onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <style scoped>
@@ -276,6 +324,93 @@ onMounted(loadData)
   color: var(--text-1);
   white-space: pre-wrap;
   line-height: 1.7;
+}
+
+.merchant-reply {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--brand-soft);
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.merchant-reply-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--brand);
+}
+
+.review-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.meta-item {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.reply-list {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.reply-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.reply-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.reply-avatar.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ff9a4f, #ff6a00);
+  color: #fff;
+  font-size: 12px;
+}
+
+.reply-body {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.reply-name {
+  font-weight: 600;
+  color: var(--text-1);
+  margin-right: 6px;
+}
+
+.reply-content {
+  color: var(--text-2);
+}
+
+.reply-time {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-3);
 }
 
 .review-side {

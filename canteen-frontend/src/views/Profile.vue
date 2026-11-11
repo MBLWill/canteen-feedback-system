@@ -219,7 +219,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
@@ -422,6 +422,13 @@ async function doUploadCert(option, type) {
 }
 
 onMounted(() => {
+  loadProfile()
+  loadSummary()
+  loadCert()
+})
+
+// keep-alive 缓存后回访刷新个人资料
+onActivated(() => {
   loadProfile()
   loadSummary()
   loadCert()

@@ -116,7 +116,15 @@ function go(s) {
     window.open(link, '_blank', 'noopener')
     return
   }
-  router.push(link.startsWith('/') ? link : '/' + link)
+  // 只允许站内已知路径，非法路径（如 /stalls/5、/foo）会命中 catch-all 重定向到 /dashboard
+  // 这里做白名单校验，避免用户点了广告却跳去看板
+  const path = link.startsWith('/') ? link : '/' + link
+  const allowed = /^\/(dishes|stalls\/south|stalls\/north|my\/(orders|reviews|favorites)|feedbacks|notices|profile)(\?.*)?$/.test(path)
+  if (allowed) {
+    router.push(path)
+  } else {
+    router.push('/dishes')
+  }
 }
 
 onMounted(async () => {
@@ -250,13 +258,18 @@ onBeforeUnmount(stopTimer)
   }
 }
 
-/* 美食广场主视觉：按素材原始比例（1600:460）适配，独立于首页的紧凑横幅 */
+/* 美食广场主视觉：靠父容器 flex stretch 拉伸到与 AI 小助手等高，min-height 兜底避免塌陷 */
 .banner-block--hero {
   margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 .banner-block--hero .banner-wrap {
+  flex: 1;
+  min-height: 200px;
   height: auto;
-  aspect-ratio: 1600 / 460;
+  aspect-ratio: auto;
 }
 .banner-block--hero .banner-dots {
   position: absolute;

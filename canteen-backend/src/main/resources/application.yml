@@ -51,11 +51,14 @@ canteen:
     base-url: https://open.bigmodel.cn/api/paas/v4
     # 建议用环境变量 CANTEEN_AGENT_KEY 覆盖，避免 key 进代码库
     api-key: ${CANTEEN_AGENT_KEY:4bd1576d03c446649674a6522a39f106.XonNQ3oEJMV6FwUn}
-    model: glm-5.3-flash
-    # glm-5.3-flash 单轮含思考链，实测首轮 6~7s、第二轮 8~9s，超时给足
-    timeout-ms: 30000
+    # glm-4-flash：智谱完全免费模型，无思考链、支持工具调用、实测稳定（连测均成功）。
+    # 注：air/airx 属付费模型，免费额度用完后会报 1113「余额不足」；硅基流动 key 也余额不足。
+    # 免费额度下 glm-4-flash 是「免费 + 快 + 支持 function calling」的最优解。
+    model: glm-4-flash
+    # 高速模型单轮很快，超时收窄以便快速失败、快速降级
+    timeout-ms: 20000
     # 一次提问里可能要分别加购多道菜，轮数太少会来不及调用 add_to_cart
-    max-tool-rounds: 4
+    max-tool-rounds: 3
     history-limit: 8
     temperature: 0.2
     max-tokens: 800

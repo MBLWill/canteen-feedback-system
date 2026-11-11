@@ -18,6 +18,9 @@
             (SELECT u.phone FROM sys_user u
               WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
               LIMIT 1) AS merchantPhone,
+            (SELECT u.avatar FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantAvatar,
             s.location,
             s.category,
             s.manager_name AS managerName,
@@ -78,6 +81,9 @@
             (SELECT u.phone FROM sys_user u
               WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
               LIMIT 1) AS merchantPhone,
+            (SELECT u.avatar FROM sys_user u
+              WHERE u.stall_id = s.id AND u.role = 'MERCHANT' AND u.deleted = 0
+              LIMIT 1) AS merchantAvatar,
             s.location,
             s.category,
             s.manager_name AS managerName,

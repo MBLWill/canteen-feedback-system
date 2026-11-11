@@ -83,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick , onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageStallOrders, updateOrderStatus } from '@/api/order'
 import { useAdaptivePaging } from '@/composables/useAdaptivePaging'
@@ -139,6 +139,7 @@ onMounted(async () => {
   await nextTick()
   bind(wrapRef.value)
 })
+onActivated(loadData)
 </script>
 
 <style scoped>

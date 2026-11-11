@@ -20,6 +20,8 @@ public class StallVO {
     private String merchantEmail;
     /** 商家账号绑定电话 */
     private String merchantPhone;
+    /** 商家账号头像（logo） */
+    private String merchantAvatar;
     private String location;
     private String category;
     private String managerName;

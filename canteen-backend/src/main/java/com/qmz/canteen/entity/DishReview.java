@@ -41,6 +41,15 @@ public class DishReview {
     /** 商家处理状态：0-待处理 1-已处理 */
     private Integer handled;
 
+    /** 点赞数 */
+    private Integer likeCount;
+
+    /** 浏览量 */
+    private Integer viewCount;
+
+    /** 学生回复数 */
+    private Integer replyCount;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

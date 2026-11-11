@@ -55,11 +55,17 @@ public class AgentOrchestrator {
             用户说「加入购物车 / 帮我买 / 来一份 / 加购 / 帮我下购物车 / 帮我下单」时，
             必须调用 add_to_cart 直接加购，要几样就分别调用几次；绝不能只把菜列出来让用户自己点。
             即使是在推荐菜品，只要用户同时要求下单/加购，也要在推荐后立刻逐道加购。
+            特别注意：用户说「随机下N道菜 / 随便来N道 / 帮我点N个菜 / 随机来几样 / 下N道菜」这类话，
+            意思是「随机挑 N 道菜并加入购物车」。做法：先调用 get_rankings（type=random, limit=N）
+            随机拿到 N 道菜，再逐道调用 add_to_cart 加购；不要理解为「查询」，也不要只列菜不买。
             加购成功后告诉用户已加入购物车，并提醒到购物车或结算页自己支付，不要替用户支付。
             你只能做查询和加购，不能删除、修改、退款任何数据，也不能查看其他用户或管理后台的信息。
             如果用户提出这类越权要求，礼貌说明「这个操作我帮不了，需要去对应页面自行处理」。
-            工具查不到就如实说没有找到。回答用中文，简洁口语化，120 字以内，
-            涉及具体菜品时点出菜名、窗口和价格。
+            工具查不到就如实说没有找到。回答用中文，口语化、自然亲切，
+            像同学之间推荐美食那样，不要像说明书或客服话术，也不要每句都带固定模板。
+            涉及具体菜品时点出菜名、窗口和价格；用户只是闲聊打招呼时，简短友好地回应即可。
+            如果用户输入的是纯表情符号、乱码或你无法理解的内容，礼貌地请用户用文字重新描述，
+            绝不要凭想象编造不存在的档口或菜品。
             """;
 
     /** 商家账号追加的经营指引 */
@@ -76,6 +82,8 @@ public class AgentOrchestrator {
     /** 收敛阶段追加的指令 */
     private static final String SUMMARIZE_INSTRUCTION =
             "请直接根据上面工具返回的真实数据回答用户的问题，不要再调用工具。"
+                    + "如果对话里出现「已加入购物车」或加购成功的记录，直接告诉用户具体加了哪几道菜、"
+                    + "已加入购物车，并提醒去购物车或结算页支付；不要再说无关的客套话或复述系统说明。"
                     + "如果是制度类问题，请按知识库 answer 里写的做法和入口回答，不要改写成别的流程。";
 
     /**
@@ -162,7 +170,7 @@ public class AgentOrchestrator {
                 // 关键兜底：首轮没调工具、但问题明显需要数据时，用 tool_choice=required 强制查一次库。
                 // 小模型带多轮历史时有 30%~50% 概率「忘了调工具」直接编造（实测：宫保鸡丁报 8 元，
                 // 实际 12 元），靠调提示词治不好，必须在协议层强制。
-                if (round == 0 && calledTools.isEmpty() && needsData(question)) {
+                if (round == 0 && calledTools.isEmpty() && (needsData(question) || needsAction(question))) {
                     log.info("首轮未调用工具但问题需要数据，强制 tool_choice=required 重试");
                     LlmProtocol.ChatResponse forced = chatWithRequired(messages, toolDefs);
                     if (forced.getUsage() != null) {
@@ -216,19 +224,18 @@ public class AgentOrchestrator {
             // 小模型经常只查菜不加购：这里根据已查到的菜品直接写购物车，保证「说下单就真下单」
             ensureAutoAddToCart(question, messages, calledTools, toolResults);
 
-            // 流式场景：工具已经查完，数据齐了，剩下的只是「组织语言」。
-            // 若继续走 auto 循环，模型会在下一轮直接返回完整文本（非流式），
-            // 前端就只能收到一次性的一大段，失去流式意义。
-            // 但加购这类真实操作往往要先查菜再加购，未调用 add_to_cart 前不能提前收口。
-            if (onDelta != null && !toolResults.isEmpty()) {
-                if (needsAction(question) && !calledTools.contains("add_to_cart")) {
-                    log.info("识别到加购意图但尚未调用 add_to_cart，继续工具轮次");
-                    continue;
+            // 数据齐了且加购已完成：立即收口（流式/非流式统一提前收口，
+            // 否则小模型会循环调工具直到轮数上限，收敛时吐出一堆 tool_calls 原文）。
+            if (!toolResults.isEmpty() && (!needsAction(question) || calledTools.contains("add_to_cart"))) {
+                if (onDelta != null) {
+                    // 用换行把「正在查询…」与正文分开，前端渲染更自然
+                    onDelta.accept("\n");
                 }
-                // 用换行把「正在查询…」与正文分开，前端渲染更自然
-                onDelta.accept("\n");
                 return summarize(messages, calledTools, toolResults,
                         totalPrompt, totalCompletion, onDelta);
+            }
+            if (needsAction(question) && !calledTools.contains("add_to_cart")) {
+                log.info("识别到加购意图但尚未调用 add_to_cart，继续工具轮次");
             }
         }
         // 达到轮数上限仍未收敛：用最后拿到的工具结果再逼一次纯文本回答
@@ -248,7 +255,28 @@ public class AgentOrchestrator {
                                   int promptTokens,
                                   int completionTokens,
                                   java.util.function.Consumer<String> onDelta) {
-        List<Map<String, Object>> finalMessages = new ArrayList<>(messages);
+        List<Map<String, Object>> finalMessages = new ArrayList<>();
+        // 清理 tool_calls：把 assistant 的 tool_calls 消息（content 为空）替换成纯文本占位，
+        // 去掉 tool_calls 字段。否则 glm-4-flash 这类小模型在总结时会把
+        // 「add_to_cart {"dishId":38,...}」这段工具调用原文当答案吐出来。
+        for (Map<String, Object> m : messages) {
+            String role = m.get("role") == null ? "" : String.valueOf(m.get("role"));
+            if ("assistant".equals(role)) {
+                Object tc = m.get("tool_calls");
+                Object rawContent = m.get("content");
+                String content = rawContent == null ? "" : String.valueOf(rawContent);
+                if (tc != null && content.isBlank()) {
+                    Map<String, Object> clean = new LinkedHashMap<>();
+                    clean.put("role", "assistant");
+                    clean.put("content", "（已调用工具查询，结果见上一条 tool 消息）");
+                    finalMessages.add(clean);
+                } else {
+                    finalMessages.add(m);
+                }
+            } else {
+                finalMessages.add(m);
+            }
+        }
         finalMessages.add(Map.of("role", "user", "content", SUMMARIZE_INSTRUCTION));
 
         LlmProtocol.ChatRequest req = new LlmProtocol.ChatRequest();
@@ -409,11 +437,13 @@ public class AgentOrchestrator {
             return;
         }
         List<Map<String, Object>> candidates = candidateDishes(toolResults);
-        if (candidates.isEmpty() && question.contains("推荐")) {
-            // 用户说「推荐几样并帮我下单」时，模型可能只给了排行榜；这里按好评榜兜底取前三
-            Object hot = tools.execute("get_rankings", Map.of("type", "hot", "limit", 3));
-            toolResults.put("get_rankings", hot);
-            candidates = candidateDishes(Map.of("get_rankings", hot));
+        if (candidates.isEmpty()) {
+            // 用户要下单但模型没查到任何菜：按「随机/随便」选随机榜，否则按好评榜兜底取菜
+            boolean random = question.contains("随机") || question.contains("随便");
+            Object ranking = tools.execute("get_rankings",
+                    Map.of("type", random ? "random" : "hot", "limit", 3));
+            toolResults.put("get_rankings", ranking);
+            candidates = candidateDishes(Map.of("get_rankings", ranking));
         }
         if (candidates.isEmpty()) {
             return;
@@ -421,8 +451,9 @@ public class AgentOrchestrator {
 
         List<String> added = new ArrayList<>();
         Map<String, Object> last = null;
+        int want = extractQuantity(question, 3);
         for (Map<String, Object> dish : candidates) {
-            if (added.size() >= 3) {
+            if (added.size() >= want) {
                 break;
             }
             Object id = dish.get("dishId");
@@ -527,11 +558,20 @@ public class AgentOrchestrator {
         String q = question.trim();
         String[] keywords = {"加购", "加入购物车", "帮我买", "帮我点", "来一份", "买一份", "点一份",
                 "下购物车", "下到购物车", "下单到购物车", "加到购物车", "加进购物车",
-                "帮我下单", "直接下单", "替我下单"};
+                "帮我下单", "直接下单", "替我下单",
+                "随机下", "随便下", "随机来", "随便来", "随机点", "随便点",
+                "来几道", "来几样", "来几个", "点几道", "点几样", "点几个",
+                "下几道", "下几样", "下几个", "上几道", "上几样", "上几个"};
         for (String k : keywords) {
             if (q.contains(k)) {
                 return true;
             }
+        }
+        // 「下三道菜」「来两道」「点两个」「整三个」这类「动词+数量+量词」的简写下单
+        if (java.util.regex.Pattern
+                .compile("(下|来|点|上|要|整|加)[\\s]*(一|二|两|三|四|五|六|七|八|九|十|[0-9]+)[\\s]*(道|样|个|份|菜)")
+                .matcher(q).find()) {
+            return true;
         }
         // 「推荐几样并下单」「帮我推荐菜品且下单」：含下单且不是单纯询问流程
         if (q.contains("下单") && !q.contains("怎么") && !q.contains("如何")
@@ -539,6 +579,39 @@ public class AgentOrchestrator {
             return true;
         }
         return false;
+    }
+
+    /** 从问题里提取「下N道/来N道/点N个」的数量，默认 def */
+    static int extractQuantity(String question, int def) {
+        if (question == null || question.isBlank()) {
+            return def;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(一|二|两|三|四|五|六|七|八|九|十|[0-9]+)\\s*(道|样|个|份|菜)")
+                .matcher(question);
+        if (!m.find()) {
+            return def;
+        }
+        return switch (m.group(1)) {
+            case "一" -> 1;
+            case "二", "两" -> 2;
+            case "三" -> 3;
+            case "四" -> 4;
+            case "五" -> 5;
+            case "六" -> 6;
+            case "七" -> 7;
+            case "八" -> 8;
+            case "九" -> 9;
+            case "十" -> 10;
+            default -> {
+                try {
+                    int n = Integer.parseInt(m.group(1));
+                    yield Math.max(1, Math.min(9, n));
+                } catch (NumberFormatException e) {
+                    yield def;
+                }
+            }
+        };
     }
 
     /** 判断问题是否属于「必须查库」的类型，避免对纯闲聊也强制调工具 */
@@ -554,7 +627,7 @@ public class AgentOrchestrator {
         }
         String[] keywords = {"多少钱", "价格", "几块", "好吃", "评分", "推荐", "窗口", "档口", "菜",
                 "营业", "几点", "投诉", "预约", "规则", "公告", "通知", "避雷", "新菜", "招牌",
-                "卫生", "怎么样", "是什么", "有什么", "在哪", "哪个"};
+                "卫生", "怎么样", "是什么", "有什么", "在哪", "哪个", "随机", "随便"};
         for (String k : keywords) {
             if (q.contains(k)) {
                 return true;

@@ -83,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick , onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
 import { pageOrders, updateOrderStatus } from '@/api/order'
 import { listStalls } from '@/api/stall'
@@ -135,6 +135,7 @@ onMounted(async () => {
   await nextTick()
   bind(wrapRef.value)
 })
+onActivated(loadData)
 </script>
 
 <style scoped>

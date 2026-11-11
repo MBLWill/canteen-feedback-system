@@ -11,4 +11,6 @@ public class DishDetailVO {
     private RatingDistributionVO distribution;
     private List<ReviewVO> latestReviews;
     private List<DishVO> recommendDishes;
+    /** 当前用户是否可评价该菜品（需下过单） */
+    private Boolean canReview;
 }

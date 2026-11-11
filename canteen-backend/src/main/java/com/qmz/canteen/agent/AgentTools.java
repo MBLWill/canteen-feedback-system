@@ -35,6 +35,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -104,9 +105,11 @@ public class AgentTools {
 
                 tool("get_rankings",
                         "获取榜单。hot=评分最高的菜、avoid=评分低且价格高的避雷菜、"
-                                + "new=评价数少的新菜、stall_top=最受欢迎档口。用户要推荐、问红黑榜、问哪个窗口最好时用。",
+                                + "new=评价数少的新菜、stall_top=最受欢迎档口、"
+                                + "random=随机推荐若干道菜（用户说「随机/随便来几道」时用）。"
+                                + "用户要推荐、问红黑榜、问哪个窗口最好、要随机下几道菜时用。",
                         Map.of(
-                                "type", Map.of("type", "string", "enum", List.of("hot", "avoid", "new", "stall_top"),
+                                "type", Map.of("type", "string", "enum", List.of("hot", "avoid", "new", "stall_top", "random"),
                                         "description", "榜单类型"),
                                 "limit", Map.of("type", "integer", "description", "返回条数，默认 5，最大 8")
                         ),
@@ -523,6 +526,22 @@ public class AgentTools {
                     item.put("favoriteCount", s.getFavoriteCount());
                     item.put("popularityScore", s.getPopularityScore());
                     list.add(item);
+                }
+            }
+            case "random" -> {
+                // 随机推荐：优先从评分 >= 3.5 的菜里随机挑，保证「随机」但不踩雷
+                List<DishBriefVO> pool = new ArrayList<>(statsMapper.selectDishBrief(goodThreshold).stream()
+                        .filter(d -> d.getAvgRating() != null && d.getAvgRating() >= 3.5)
+                        .toList());
+                if (pool.size() < size) {
+                    pool = new ArrayList<>(statsMapper.selectDishBrief(goodThreshold).stream()
+                            .filter(d -> d.getAvgRating() != null)
+                            .toList());
+                }
+                Collections.shuffle(pool);
+                for (DishBriefVO d : pool.stream().limit(size).toList()) {
+                    list.add(dishRankItem(d.getDishId(), d.getDishName(), d.getStallName(), d.getWindowNo(),
+                            d.getPrice(), d.getAvgRating(), d.getReviewCount(), d.getGoodRate(), "随机推荐"));
                 }
             }
             default -> {

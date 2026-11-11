@@ -17,7 +17,8 @@ public interface StatsMapper {
     Map<String, Object> selectOverview(@Param("goodThreshold") Integer goodThreshold);
 
     List<DishRankVO> selectDishRanking(@Param("limit") Long limit,
-                                       @Param("goodThreshold") Integer goodThreshold);
+                                       @Param("goodThreshold") Integer goodThreshold,
+                                       @Param("period") String period);
 
     List<StallGoodRateVO> selectStallGoodRate(@Param("goodThreshold") Integer goodThreshold);
 

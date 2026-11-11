@@ -143,7 +143,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageFeedbacks, createFeedback, replyFeedback, deleteFeedback } from '@/api/feedback'
@@ -321,6 +321,17 @@ onMounted(async () => {
   stalls.value = res.data
   loadData()
 })
+
+// 同一组件复用于 /feedbacks（我的留言）与 /admin/feedbacks（全部留言），
+// keep-alive 缓存下切换路由不会重新 onMounted，必须 watch 路径重新加载，
+// 否则会显示上一个视角的旧数据
+watch(
+  () => route.path,
+  () => {
+    query.current = 1
+    loadData()
+  }
+)
 </script>
 
 <style scoped>
