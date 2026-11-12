@@ -263,7 +263,15 @@ function openNotice(n) {
   router.push({ path: `/dishes/${n.dishId}`, query })
 }
 
-onMounted(loadUnread)
+onMounted(() => {
+  loadUnread()
+  // 首次进入时让侧边栏分组与当前路由一致（管理员默认落在数据大屏）
+  if (userStore.isAdmin) {
+    adminMode.value = route.path.startsWith('/admin') ? 'admin' : 'daily'
+  } else if (userStore.isMerchant) {
+    merchantMode.value = route.path.startsWith('/merchant') ? 'merchant' : 'daily'
+  }
+})
 
 // 管理员侧边栏切换：'admin' 后台管理（默认），'daily' 日常使用（与学生端一致）
 const adminMode = ref('admin')
@@ -292,10 +300,21 @@ const avatarText = computed(() => (userStore.nickname || 'U').trim().slice(0, 1)
 
 function toggleAdminMode() {
   adminMode.value = adminMode.value === 'admin' ? 'daily' : 'admin'
+  // 跨区切换时跟随落地页，避免菜单与内容不匹配
+  if (adminMode.value === 'admin' && !route.path.startsWith('/admin')) {
+    router.push('/admin/dashboard')
+  } else if (adminMode.value === 'daily' && route.path.startsWith('/admin')) {
+    router.push('/dashboard')
+  }
 }
 
 function toggleMerchantMode() {
   merchantMode.value = merchantMode.value === 'merchant' ? 'daily' : 'merchant'
+  if (merchantMode.value === 'merchant' && !route.path.startsWith('/merchant')) {
+    router.push('/merchant/todos')
+  } else if (merchantMode.value === 'daily' && route.path.startsWith('/merchant')) {
+    router.push('/dashboard')
+  }
 }
 
 function handleCommand(command) {

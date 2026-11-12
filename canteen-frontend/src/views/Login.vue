@@ -160,6 +160,9 @@ async function handleLogin() {
       router.push(redirect)
     } else if (userStore.isMerchant) {
       router.push('/merchant/todos')
+    } else if (userStore.isAdmin) {
+      // 管理员默认落地数据大屏
+      router.push('/admin/dashboard')
     } else {
       router.push('/dashboard')
     }

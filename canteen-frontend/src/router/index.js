@@ -13,6 +13,11 @@ function getRole() {
   }
 }
 
+/** 首页按角色落地：管理员直接进数据大屏，其余进数据看板 */
+function homePath() {
+  return getRole() === 'ADMIN' ? '/admin/dashboard' : '/dashboard'
+}
+
 const routes = [
   {
     path: '/login',
@@ -23,7 +28,7 @@ const routes = [
   {
     path: '/',
     component: () => import('@/views/Layout.vue'),
-    redirect: '/dashboard',
+    redirect: () => homePath(),
     children: [
       { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/Statistics.vue'), meta: { title: '数据看板', icon: 'DataLine' } },
       { path: 'dishes', name: 'DishList', component: () => import('@/views/DishList.vue'), meta: { title: '美食探索', icon: 'Shop' } },
@@ -58,7 +63,7 @@ const routes = [
       { path: 'profile', name: 'Profile', component: () => import('@/views/Profile.vue'), meta: { title: '个人中心', hidden: true } }
     ]
   },
-  { path: '/:pathMatch(.*)*', redirect: '/dashboard' }
+  { path: '/:pathMatch(.*)*', redirect: () => homePath() }
 ]
 
 const router = createRouter({

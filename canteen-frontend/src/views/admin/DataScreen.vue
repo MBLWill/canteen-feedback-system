@@ -16,7 +16,7 @@
 
       <div class="head-right">
         <div class="clock">
-          <span class="clock-time">{{ clock.time }}</span>
+          <span class="clock-time"><i class="live-dot" />{{ clock.time }}</span>
           <span class="clock-date">{{ clock.date }}</span>
         </div>
 
@@ -237,6 +237,20 @@ const ranges = [
 
 const PALETTE = ['#ff7a1a', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6', '#f43f5e']
 
+/** #rrggbb → rgba()，用于气泡光晕等需要透明度的场景 */
+function rgba(hex, a) {
+  const n = parseInt(String(hex).replace('#', ''), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
+}
+
+/** 坐标轴上限取整到「半档」，避免出现 4407.3 这类零碎刻度 */
+function niceMax(v) {
+  const n = Math.max(1, Number(v) || 1)
+  const mag = Math.pow(10, Math.floor(Math.log10(n)))
+  const step = mag / 2
+  return Math.ceil((n * 1.12) / step) * step
+}
+
 /* ---------- 实时时钟 ---------- */
 const clock = ref({ time: '', date: '' })
 let clockTimer = null
@@ -394,6 +408,9 @@ const trendOption = computed(() => {
   const list = data.value.salesTrend || []
   const avgQty = list.length ? list.reduce((s, i) => s + Number(i.quantity || 0), 0) / list.length : 0
   return {
+    animationDuration: 900,
+    animationDurationUpdate: 480,
+    animationEasing: 'cubicOut',
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross', crossStyle: { color: '#c9cfd8' } },
@@ -435,6 +452,7 @@ const trendOption = computed(() => {
         name: '销量',
         type: 'bar',
         barMaxWidth: 18,
+        animationDelay: idx => idx * 24,
         data: list.map(i => i.quantity),
         itemStyle: {
           borderRadius: [5, 5, 0, 0],
@@ -483,6 +501,8 @@ const categoryOption = computed(() => {
   const list = data.value.categorySales || []
   const total = list.reduce((s, i) => s + Number(i.quantity || 0), 0)
   return {
+    animationDuration: 900,
+    animationEasing: 'cubicOut',
     tooltip: {
       trigger: 'item',
       formatter: p => {
@@ -536,6 +556,9 @@ const stallRankOption = computed(() => {
   const isAmount = stallMetric.value === 'amount'
   const max = Math.max(1, ...list.map(i => Number(i[stallMetric.value] || 0)))
   return {
+    animationDuration: 800,
+    animationDurationUpdate: 480,
+    animationEasing: 'cubicOut',
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -551,7 +574,7 @@ const stallRankOption = computed(() => {
     grid: { left: 92, right: 74, top: 12, bottom: 22 },
     xAxis: {
       type: 'value',
-      max: Math.ceil(max * 1.12),
+      max: niceMax(max),
       splitLine: { lineStyle: { color: '#f1f4f8' } },
       axisLabel: { color: '#98a1ad', fontSize: 11, formatter: v => (v >= 10000 ? (v / 10000).toFixed(1) + 'w' : v) }
     },
@@ -566,6 +589,7 @@ const stallRankOption = computed(() => {
       {
         type: 'bar',
         barMaxWidth: 15,
+        animationDelay: idx => idx * 40,
         data: list.map(i => ({
           value: i[stallMetric.value],
           stallId: i.stallId,
@@ -613,6 +637,9 @@ const dishRankOption = computed(() => {
   const isAmount = stallMetric.value === 'amount'
   const max = Math.max(1, ...list.map(i => Number(i[stallMetric.value] || 0)))
   return {
+    animationDuration: 800,
+    animationDurationUpdate: 480,
+    animationEasing: 'cubicOut',
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -629,7 +656,7 @@ const dishRankOption = computed(() => {
     grid: { left: 100, right: 70, top: 12, bottom: 22 },
     xAxis: {
       type: 'value',
-      max: Math.ceil(max * 1.12),
+      max: niceMax(max),
       splitLine: { lineStyle: { color: '#f1f4f8' } },
       axisLabel: { color: '#98a1ad', fontSize: 11, formatter: v => (v >= 10000 ? (v / 10000).toFixed(1) + 'w' : v) }
     },
@@ -644,6 +671,7 @@ const dishRankOption = computed(() => {
       {
         type: 'bar',
         barMaxWidth: 15,
+        animationDelay: idx => idx * 40,
         data: list.map((i, idx) => ({
           value: i[stallMetric.value],
           dishId: i.dishId,
@@ -675,6 +703,9 @@ const dishRankOption = computed(() => {
 const goodRateOption = computed(() => {
   const list = [...(data.value.stallRating || [])].sort((a, b) => a.goodRate - b.goodRate)
   return {
+    animationDuration: 800,
+    animationDurationUpdate: 480,
+    animationEasing: 'cubicOut',
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -704,6 +735,7 @@ const goodRateOption = computed(() => {
       {
         type: 'bar',
         barMaxWidth: 13,
+        animationDelay: idx => idx * 40,
         data: list.map(i => ({
           value: i.goodRate,
           itemStyle: {
@@ -729,6 +761,9 @@ const ratingOption = computed(() => {
   const total = list.reduce((s, i) => s + Number(i.count || 0), 0)
   const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e']
   return {
+    animationDuration: 800,
+    animationDurationUpdate: 480,
+    animationEasing: 'cubicOut',
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -755,6 +790,7 @@ const ratingOption = computed(() => {
       {
         type: 'bar',
         barMaxWidth: 42,
+        animationDelay: idx => idx * 60,
         data: list.map((i, idx) => ({
           value: i.count,
           itemStyle: {
@@ -805,6 +841,9 @@ const quadrantOption = computed(() => {
   const pts = quadrantPoints.value
   const avgQty = pts.length ? pts.reduce((s, i) => s + i.quantity, 0) / pts.length : 0
   const avgRate = pts.length ? pts.reduce((s, i) => s + i.goodRate, 0) / pts.length : 0
+  const rawMaxQty = Math.max(1, ...pts.map(i => i.quantity))
+  const qtyStep = rawMaxQty > 2000 ? 500 : 200
+  const maxQty = Math.ceil((rawMaxQty * 1.15) / qtyStep) * qtyStep
   const maxAmount = Math.max(1, ...pts.map(i => i.amount))
   const colorOf = p => {
     if (p.quantity >= avgQty && p.goodRate >= avgRate) return '#22c55e'
@@ -812,7 +851,27 @@ const quadrantOption = computed(() => {
     if (p.goodRate >= avgRate) return '#3b82f6'
     return '#94a3b8'
   }
+  const area = (x0, x1, y0, y1, color, text, pos) => ([
+    {
+      xAxis: x0,
+      yAxis: y0,
+      itemStyle: { color },
+      label: {
+        show: !!text,
+        position: pos,
+        formatter: text,
+        color: '#c3cad4',
+        fontSize: 10,
+        fontWeight: 600,
+        padding: [6, 8]
+      }
+    },
+    { xAxis: x1, yAxis: y1 }
+  ])
   return {
+    animationDuration: 900,
+    animationDurationUpdate: 500,
+    animationEasing: 'cubicOut',
     tooltip: {
       trigger: 'item',
       formatter: p => {
@@ -831,6 +890,7 @@ const quadrantOption = computed(() => {
       nameLocation: 'middle',
       nameGap: 26,
       nameTextStyle: { color: '#98a1ad', fontSize: 11 },
+      max: maxQty,
       splitLine: { lineStyle: { color: '#f1f4f8' } },
       axisLabel: { color: '#98a1ad', fontSize: 11, formatter: v => (v >= 10000 ? (v / 10000).toFixed(1) + 'w' : v) }
     },
@@ -838,14 +898,28 @@ const quadrantOption = computed(() => {
       type: 'value',
       name: '好评率(%)',
       nameTextStyle: { color: '#98a1ad', fontSize: 11 },
-      min: v => Math.max(0, Math.floor(v.min - 5)),
-      max: v => Math.min(100, Math.ceil(v.max + 3)),
+      min: v => Math.max(0, Math.floor((v.min - 4) / 10) * 10),
+      max: v => Math.min(100, Math.ceil((v.max + 4) / 10) * 10),
       splitLine: { lineStyle: { color: '#f1f4f8' } },
       axisLabel: { color: '#98a1ad', fontSize: 11, formatter: '{value}%' }
     },
     series: [
+      // 底层：扩散涟漪（只做视觉，不参与交互）
+      {
+        type: 'effectScatter',
+        silent: true,
+        z: 1,
+        symbolSize: v => 8 + Math.sqrt(v[2] / maxAmount) * 26,
+        rippleEffect: { period: 4, scale: 3.4, brushType: 'stroke', number: 2 },
+        data: pts.map(p => ({
+          value: [p.quantity, p.goodRate, p.amount],
+          itemStyle: { color: colorOf(p), opacity: 0.55 }
+        }))
+      },
+      // 上层：实心气泡
       {
         type: 'scatter',
+        z: 3,
         symbolSize: v => 14 + Math.sqrt(v[2] / maxAmount) * 30,
         data: pts.map(p => ({
           value: [p.quantity, p.goodRate, p.amount],
@@ -853,25 +927,41 @@ const quadrantOption = computed(() => {
           stallId: p.stallId,
           itemStyle: {
             color: colorOf(p),
-            opacity: 0.82,
+            opacity: 0.9,
             borderColor: '#fff',
-            borderWidth: 1.5
+            borderWidth: 1.5,
+            shadowBlur: 16,
+            shadowColor: rgba(colorOf(p), 0.4)
           }
         })),
         label: {
           show: true,
           position: 'right',
+          distance: 8,
           formatter: p => p.data.raw.stallName,
           color: '#5b6472',
           fontSize: 11
         },
-        emphasis: { itemStyle: { opacity: 1, borderWidth: 2 } },
+        emphasis: {
+          scale: 1.15,
+          itemStyle: { opacity: 1, borderWidth: 2, shadowBlur: 22 }
+        },
         markLine: {
           silent: true,
           symbol: 'none',
-          lineStyle: { color: '#d5dbe3', type: 'dashed' },
+          lineStyle: { color: '#cfd6df', type: 'dashed', width: 1 },
           label: { show: false },
           data: [{ xAxis: avgQty }, { yAxis: avgRate }]
+        },
+        markArea: {
+          silent: true,
+          z: 0,
+          data: [
+            area(avgQty, maxQty, avgRate, 100, 'rgba(34,197,94,0.055)', '量高口碑好', 'insideTopRight'),
+            area(0, avgQty, avgRate, 100, 'rgba(59,130,246,0.045)', '口碑好', 'insideTopLeft'),
+            area(avgQty, maxQty, 0, avgRate, 'rgba(245,158,11,0.05)', '量高待提升', 'insideBottomRight'),
+            area(0, avgQty, 0, avgRate, 'rgba(148,163,184,0.055)', '待改进', 'insideBottomLeft')
+          ]
         }
       }
     ]
@@ -991,6 +1081,14 @@ onBeforeUnmount(() => {
     radial-gradient(1100px 380px at 8% -10%, rgba(255, 122, 26, .10), transparent 62%),
     radial-gradient(900px 360px at 100% 0%, rgba(59, 130, 246, .09), transparent 60%),
     var(--bg);
+  background-size: 160% 160%, 150% 150%, auto;
+  animation: bgDrift 26s ease-in-out infinite alternate;
+}
+
+/* 背景光晕缓慢漂移，让静态看板有呼吸感 */
+@keyframes bgDrift {
+  from { background-position: 0% 0%, 100% 0%, 0 0; }
+  to { background-position: 45% 35%, 55% 25%, 0 0; }
 }
 
 /* 全屏大屏模式：覆盖整个视口 */
@@ -1000,6 +1098,12 @@ onBeforeUnmount(() => {
   z-index: 3000;
   overflow-y: auto;
   padding: 20px 26px 26px;
+  animation: fsIn .3s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+@keyframes fsIn {
+  from { opacity: 0; transform: scale(.985); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .ds--loading { cursor: progress; }
@@ -1030,6 +1134,25 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 68%);
   pointer-events: none;
+}
+
+/* 横幅上的高光扫过 */
+.ds-head::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  width: 38%;
+  left: -55%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .12), transparent);
+  transform: skewX(-16deg);
+  animation: sweep 7.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  0% { left: -55%; }
+  60%, 100% { left: 125%; }
 }
 
 .head-left { position: relative; z-index: 1; }
@@ -1082,11 +1205,29 @@ onBeforeUnmount(() => {
 }
 
 .clock-time {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 22px;
   font-weight: 700;
   color: #fff;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, .65);
+  animation: livePulse 2s ease-out infinite;
+}
+
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, .6); }
+  70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
 .clock-date { font-size: 11px; color: rgba(255, 255, 255, .62); }
@@ -1203,15 +1344,21 @@ onBeforeUnmount(() => {
   animation-delay: calc(var(--i) * 45ms);
 }
 
+/* 用 translate 而非 transform 做入场，避免覆盖 hover 的 transform */
 @keyframes rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; translate: 0 10px; }
+  to { opacity: 1; translate: 0 0; }
 }
 
 .kpi:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px rgba(16, 24, 40, .10);
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+}
+
+.kpi:hover .kpi-glow {
+  opacity: .24;
+  transform: scale(1.15);
 }
 
 .kpi-glow {
@@ -1224,6 +1371,7 @@ onBeforeUnmount(() => {
   background: var(--accent);
   opacity: .12;
   filter: blur(6px);
+  transition: opacity .28s ease, transform .28s ease;
   pointer-events: none;
 }
 
@@ -1319,6 +1467,29 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-xs);
   overflow: hidden;
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  animation: rise .55s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+.insight:nth-child(1) { animation-delay: 260ms; }
+.insight:nth-child(2) { animation-delay: 320ms; }
+.insight:nth-child(3) { animation-delay: 380ms; }
+.insight:nth-child(4) { animation-delay: 440ms; }
+
+.insight:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--tone, #ff7a1a) 30%, var(--border));
+}
+
+.insight:hover .insight-emoji {
+  animation: pop .5s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.16); }
+  100% { transform: scale(1); }
 }
 
 .insight::after {
@@ -1385,11 +1556,21 @@ onBeforeUnmount(() => {
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-xs);
-  transition: box-shadow .2s ease, border-color .2s ease;
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  animation: rise .6s cubic-bezier(.22, .8, .3, 1) both;
 }
 
+.chart-grid .card:nth-child(1) { animation-delay: 120ms; }
+.chart-grid .card:nth-child(2) { animation-delay: 190ms; }
+.chart-grid .card:nth-child(3) { animation-delay: 260ms; }
+.chart-grid .card:nth-child(4) { animation-delay: 330ms; }
+.chart-grid .card:nth-child(5) { animation-delay: 400ms; }
+.chart-grid .card:nth-child(6) { animation-delay: 470ms; }
+.chart-grid .card:nth-child(7) { animation-delay: 540ms; }
+
 .card:hover {
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 26px rgba(16, 24, 40, .09);
   border-color: var(--border-strong);
 }
 
@@ -1480,6 +1661,12 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all .16s ease;
   white-space: nowrap;
+  animation: chipIn .24s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+@keyframes chipIn {
+  from { opacity: 0; transform: scale(.84); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .filter-chip:hover {
@@ -1518,5 +1705,20 @@ onBeforeUnmount(() => {
   .clock { display: none; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .kpi-value { font-size: 20px; }
+}
+
+/* 尊重系统「减少动态效果」偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .ds,
+  .ds--full,
+  .ds-head::before,
+  .kpi,
+  .insight,
+  .card,
+  .filter-chip,
+  .live-dot,
+  .pill-btn.on .pill-dot {
+    animation: none !important;
+  }
 }
 </style>
