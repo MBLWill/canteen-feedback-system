@@ -499,7 +499,9 @@ const trendOption = computed(() => {
         return lines.join('<br/>')
       }
     },
-    grid: { left: 10, right: 32, top: 40, bottom: 14, containLabel: true },
+    // 图例由卡片头部（.legend-inline）承担，图表内不再重复
+    legend: { show: false },
+    grid: { left: 8, right: 12, top: 14, bottom: 4, containLabel: true },
     xAxis: {
       type: 'category',
       data: list.map(i => (i.date || '').slice(5)),
@@ -510,14 +512,16 @@ const trendOption = computed(() => {
     },
     yAxis: [
       {
-        type: 'value', name: '销量', nameTextStyle: { color: '#98a1ad', fontSize: 12 },
+        type: 'value', name: fullscreen.value ? '' : '销量', nameTextStyle: { color: '#98a1ad', fontSize: 12 },
+        splitNumber: 4,
         splitLine: { lineStyle: { color: '#f1f4f8' } },
-        axisLabel: { color: '#98a1ad', fontSize: 12 }
+        axisLabel: { color: '#98a1ad', fontSize: 12, hideOverlap: true }
       },
       {
-        type: 'value', name: '营收', nameTextStyle: { color: '#98a1ad', fontSize: 12 },
+        type: 'value', name: fullscreen.value ? '' : '营收', nameTextStyle: { color: '#98a1ad', fontSize: 12 },
+        splitNumber: 4,
         splitLine: { show: false },
-        axisLabel: { color: '#98a1ad', fontSize: 12, formatter: v => (v >= 10000 ? (v / 10000).toFixed(1) + 'w' : v) }
+        axisLabel: { color: '#98a1ad', fontSize: 12, hideOverlap: true, formatter: v => (v >= 10000 ? (v / 10000).toFixed(1) + 'w' : v) }
       }
     ],
     series: [
@@ -540,6 +544,8 @@ const trendOption = computed(() => {
           symbol: 'none',
           lineStyle: { type: 'dashed', color: '#c9cfd8', width: 1 },
           label: {
+            // 大屏下顶部指标带已给出「日均销量」，这里不再叠加文字避免与刻度相撞
+            show: !fullscreen.value,
             formatter: `日均 ${Math.round(avgQty)}`,
             position: 'insideEndTop',
             color: '#98a1ad',
@@ -986,10 +992,11 @@ const quadrantOption = computed(() => {
           `平均分：${d.avgRating.toFixed(2)}`
       }
     },
-    grid: { left: 8, right: 34, top: 30, bottom: 12, containLabel: true },
+    grid: { left: 8, right: 34, top: fullscreen.value ? 24 : 30, bottom: 8, containLabel: true },
     xAxis: {
       type: 'value',
-      name: '销量(份)',
+      // 大屏下卡片副标题已写明「横轴=销量」，轴名省略避免被裁
+      name: fullscreen.value ? '' : '销量(份)',
       nameLocation: 'middle',
       nameGap: 26,
       nameTextStyle: { color: '#98a1ad', fontSize: 12 },
@@ -1000,7 +1007,7 @@ const quadrantOption = computed(() => {
     },
     yAxis: {
       type: 'value',
-      name: '好评率(%)',
+      name: fullscreen.value ? '' : '好评率(%)',
       nameTextStyle: { color: '#98a1ad', fontSize: 12 },
       min: v => Math.max(0, Math.floor((v.min - 4) / 10) * 10),
       max: v => Math.min(100, Math.ceil((v.max + 4) / 10) * 10),
@@ -1256,15 +1263,18 @@ onBeforeUnmount(() => {
   z-index: 3000;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  overflow: hidden;
-  padding: 10px 16px 10px;
+  gap: 14px;
+  /* 空间足够时一屏铺满；视口过矮时改为滚动，绝不把图表压扁 */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 14px 18px 16px;
   animation: fsIn .3s cubic-bezier(.22, .8, .3, 1) both;
 }
 
 /* 顶部收成一行标题，减少信息层级 */
 .ds--full .ds-head {
-  padding: 8px 18px;
+  flex-shrink: 0;
+  padding: 12px 22px;
   margin-bottom: 0;
 }
 
@@ -1276,19 +1286,20 @@ onBeforeUnmount(() => {
 }
 
 .ds--full .head-badge { display: none; }
-.ds--full .ds-head h1 { font-size: 19px; letter-spacing: .4px; }
-.ds--full .head-sub { margin: 0; font-size: 11px; color: rgba(255, 255, 255, .6); }
+.ds--full .ds-head h1 { font-size: 21px; letter-spacing: .4px; }
+.ds--full .head-sub { margin: 0; font-size: 12px; color: rgba(255, 255, 255, .62); }
 .ds--full .head-sub b { color: #ffd7b0; }
 .ds--full .clock { padding-right: 12px; }
-.ds--full .clock-time { font-size: 17px; }
+.ds--full .clock-time { font-size: 19px; }
 .ds--full .clock-date { font-size: 10px; }
 .ds--full .range-btn { padding: 6px 12px; }
 
 /* 六项指标合并成一条，视觉上从 6 张卡变成 1 个模块 */
 .ds--full .kpi-grid {
+  flex-shrink: 0;
   grid-template-columns: repeat(6, 1fr);
   gap: 0;
-  padding: 7px 6px;
+  padding: 12px 8px;
   margin-bottom: 0;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1310,11 +1321,11 @@ onBeforeUnmount(() => {
 .ds--full .kpi::before,
 .ds--full .kpi-glow { display: none; }
 .ds--full .kpi:hover { transform: none; box-shadow: none; }
-.ds--full .kpi-top { justify-content: flex-start; gap: 8px; margin-bottom: 4px; min-height: 16px; }
+.ds--full .kpi-top { justify-content: flex-start; gap: 8px; margin-bottom: 6px; min-height: 18px; }
 .ds--full .kpi-icon { font-size: 15px; }
 .ds--full .kpi-tag { display: none; }
-.ds--full .kpi-value { font-size: 22px; }
-.ds--full .kpi-label { margin-top: 3px; font-size: 11.5px; }
+.ds--full .kpi-value { font-size: 25px; }
+.ds--full .kpi-label { margin-top: 4px; font-size: 12px; }
 .ds--full .kpi-extra { display: none; }
 
 /* 洞察条与页脚在大屏下让位给图表 */
@@ -1324,11 +1335,14 @@ onBeforeUnmount(() => {
 /* ---------- 大屏：核心 4 行布局 ---------- */
 .ds--full .chart-grid {
   flex: 1;
-  min-height: 0;
+  /*
+   * 三行给足最小高度（趋势 210 / 榜单 280 / 象限与品类 230），
+   * 视口放不下时整页滚动，而不是把图表压成薄片。
+   */
+  min-height: 752px;
   grid-template-columns: repeat(12, 1fr);
-  /* 趋势为主视觉；第三行必须放下 8 条横条；第四行给品类环图留高度 */
-  grid-template-rows: 1.02fr 1.25fr 1.07fr;
-  gap: 14px;
+  grid-template-rows: minmax(210px, 1.18fr) minmax(280px, 1.5fr) minmax(230px, 1.15fr);
+  gap: 16px;
 }
 
 /* 第 2 行：销量营收趋势通栏（视觉 C 位） */
@@ -1344,7 +1358,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 16px 18px 12px;
+  padding: 16px 20px 14px;
   border: none;
   border-radius: 18px;
   box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 12px 30px rgba(16, 24, 40, .07);
@@ -1396,8 +1410,28 @@ onBeforeUnmount(() => {
 
 .ds--full .chart-body { flex: 1; min-height: 0; }
 
+/*
+ * 视口明显偏矮（如笔记本 1080×600 左右的窗口）时，
+ * 与其把三行图表压成薄片，不如给足高度、让页面自然滚动。
+ */
+@media (max-height: 820px) {
+  .ds--full .chart-grid {
+    min-height: 812px;
+    grid-template-rows: minmax(230px, 1fr) minmax(300px, 1fr) minmax(250px, 1fr);
+  }
+
+  /* 高度紧张时只隐去说明小字，标题与图表都保留原有尺寸 */
+  .ds--full .card-sub { display: none; }
+
+  .ds--full .card-head {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+}
+
 /* ---------- 大屏：更多指标入口 ---------- */
 .ds-more {
+  flex-shrink: 0;
   display: flex;
   justify-content: center;
   padding-top: 2px;
