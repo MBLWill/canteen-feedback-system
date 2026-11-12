@@ -41,13 +41,19 @@
           </svg>
         </button>
 
-        <button class="icon-btn" :title="fullscreen ? '退出全屏 (Esc)' : '全屏展示'" @click="toggleFullscreen">
-          <svg v-if="!fullscreen" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          class="screen-btn"
+          :class="{ on: fullscreen }"
+          :title="fullscreen ? '退出大屏（Esc）' : '一屏展示全部图表'"
+          @click="toggleFullscreen"
+        >
+          <svg v-if="!fullscreen" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" />
           </svg>
+          <span>{{ fullscreen ? '退出大屏' : '大屏模式' }}</span>
         </button>
       </div>
     </header>
@@ -97,7 +103,9 @@
             <i class="dot" style="background:#3b82f6; margin-left:12px" />营收
           </div>
         </div>
-        <EChart v-if="data.salesTrend?.length" :option="trendOption" height="286px" />
+        <div v-if="data.salesTrend?.length" class="chart-body">
+          <EChart :option="trendOption" :height="chartH('286px')" />
+        </div>
         <el-empty v-else description="暂无销量数据" :image-size="70" />
       </section>
 
@@ -112,7 +120,9 @@
             {{ selectedCategory }} ×
           </button>
         </div>
-        <EChart v-if="data.categorySales?.length" :option="categoryOption" height="286px" @click="onCategoryClick" />
+        <div v-if="data.categorySales?.length" class="chart-body">
+          <EChart :option="categoryOption" :height="chartH('286px')" @click="onCategoryClick" />
+        </div>
         <el-empty v-else description="暂无品类数据" :image-size="70" />
       </section>
 
@@ -133,7 +143,9 @@
             </button>
           </div>
         </div>
-        <EChart v-if="data.stallRank?.length" :option="stallRankOption" height="300px" @click="onStallClick" />
+        <div v-if="data.stallRank?.length" class="chart-body">
+          <EChart :option="stallRankOption" :height="chartH('300px')" @click="onStallClick" />
+        </div>
         <el-empty v-else description="暂无档口数据" :image-size="70" />
       </section>
 
@@ -149,7 +161,9 @@
             <button :class="{ active: stallMetric === 'amount' }" @click="stallMetric = 'amount'">营收</button>
           </div>
         </div>
-        <EChart v-if="filteredDishRank.length" :option="dishRankOption" height="300px" @click="onDishClick" />
+        <div v-if="filteredDishRank.length" class="chart-body">
+          <EChart :option="dishRankOption" :height="chartH('300px')" @click="onDishClick" />
+        </div>
         <el-empty v-else description="当前筛选下暂无排行数据" :image-size="70" />
       </section>
 
@@ -161,7 +175,9 @@
             <span class="card-sub">好评率 = 4-5 星占比 · 低于 60% 标红</span>
           </div>
         </div>
-        <EChart v-if="data.stallRating?.length" :option="goodRateOption" height="300px" />
+        <div v-if="data.stallRating?.length" class="chart-body">
+          <EChart :option="goodRateOption" :height="chartH('300px')" />
+        </div>
         <el-empty v-else description="暂无评价数据" :image-size="70" />
       </section>
 
@@ -173,7 +189,9 @@
             <span class="card-sub">全校 {{ data.overview?.reviewCount ?? 0 }} 条有效评价 · 平均 {{ Number(data.overview?.avgRating || 0).toFixed(2) }} 分</span>
           </div>
         </div>
-        <EChart v-if="data.ratingDist?.length" :option="ratingOption" height="300px" />
+        <div v-if="data.ratingDist?.length" class="chart-body">
+          <EChart :option="ratingOption" :height="chartH('300px')" />
+        </div>
         <el-empty v-else description="暂无评分数据" :image-size="70" />
       </section>
 
@@ -185,7 +203,9 @@
             <span class="card-sub">横轴=销量，纵轴=好评率，气泡大小=营收 · 右上为「量高口碑好」明星档口，右上分区线为均值</span>
           </div>
         </div>
-        <EChart v-if="quadrantPoints.length" :option="quadrantOption" height="320px" @click="onStallClick" />
+        <div v-if="quadrantPoints.length" class="chart-body">
+          <EChart :option="quadrantOption" :height="chartH('320px')" @click="onStallClick" />
+        </div>
         <el-empty v-else description="暂无可对比的档口数据" :image-size="70" />
       </section>
     </div>
@@ -940,7 +960,7 @@ const quadrantOption = computed(() => {
           distance: 10,
           formatter: p => p.data.raw.stallName,
           color: '#5b6472',
-          fontSize: 11,
+          fontSize: fullscreen.value ? 10 : 11,
           textBorderColor: 'rgba(255,255,255,0.92)',
           textBorderWidth: 2
         },
@@ -1023,12 +1043,38 @@ function toggleAuto() {
   }
 }
 
-/* ---------- 全屏 ---------- */
-function toggleFullscreen() {
-  fullscreen.value = !fullscreen.value
+/* ---------- 大屏模式 ---------- */
+/** 大屏下一屏铺满：图表高度交给 flex 容器，普通模式下用各自的设计高度 */
+function chartH(base) {
+  return fullscreen.value ? '100%' : base
 }
+
+async function toggleFullscreen() {
+  const next = !fullscreen.value
+  fullscreen.value = next
+  try {
+    if (next) {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen()
+      }
+    } else if (document.fullscreenElement && document.exitFullscreen) {
+      await document.exitFullscreen()
+    }
+  } catch {
+    // 预览面板等受限于 iframe 时浏览器会拒绝，遮罩层已经铺满视口，忽略即可
+  }
+}
+
+/** 用户用系统方式退出全屏时同步内部状态 */
+function onFsChange() {
+  if (!document.fullscreenElement && fullscreen.value) fullscreen.value = false
+}
+
 function onKeydown(e) {
-  if (e.key === 'Escape' && fullscreen.value) fullscreen.value = false
+  if (e.key === 'Escape' && fullscreen.value) {
+    fullscreen.value = false
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {})
+  }
 }
 watch(fullscreen, v => {
   document.body.style.overflow = v ? 'hidden' : ''
@@ -1061,6 +1107,7 @@ onMounted(async () => {
   tickClock()
   clockTimer = setInterval(tickClock, 1000)
   window.addEventListener('keydown', onKeydown)
+  document.addEventListener('fullscreenchange', onFsChange)
   await loadAll()
 })
 
@@ -1073,6 +1120,8 @@ onBeforeUnmount(() => {
   if (autoTimer) clearInterval(autoTimer)
   if (rafId) cancelAnimationFrame(rafId)
   window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('fullscreenchange', onFsChange)
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {})
   document.body.style.overflow = ''
 })
 </script>
@@ -1110,14 +1159,75 @@ onBeforeUnmount(() => {
 }
 
 /* 全屏大屏模式：覆盖整个视口 */
+/* 大屏模式：铺满视口，一屏装下全部图表（不滚动） */
 .ds--full {
   position: fixed;
   inset: 0;
   z-index: 3000;
-  overflow-y: auto;
-  padding: 20px 26px 26px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px 18px;
   animation: fsIn .3s cubic-bezier(.22, .8, .3, 1) both;
 }
+
+/* 大屏下压缩顶部信息，把高度让给图表 */
+.ds--full .ds-head {
+  padding: 11px 18px;
+  margin-bottom: 10px;
+}
+
+.ds--full .ds-head h1 { font-size: 20px; }
+.ds--full .head-badge { margin-bottom: 4px; padding: 1px 8px; }
+.ds--full .head-sub { margin-top: 4px; font-size: 11px; }
+.ds--full .clock-time { font-size: 18px; }
+
+/* 大屏下指标卡只留核心数字 */
+.ds--full .kpi-grid {
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ds--full .kpi { padding: 8px 12px 7px; }
+.ds--full .kpi-top { margin-bottom: 3px; min-height: 14px; }
+.ds--full .kpi-icon { font-size: 14px; }
+.ds--full .kpi-value { font-size: 19px; }
+.ds--full .kpi-label { margin-top: 2px; font-size: 11px; }
+.ds--full .kpi-extra { display: none; }
+
+/* 洞察条与页脚在大屏下让位给图表 */
+.ds--full .insight-grid,
+.ds--full .ds-foot { display: none; }
+
+/* 图表区：三行铺满剩余高度 */
+.ds--full .chart-grid {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: 1fr 1fr 1.16fr;
+  gap: 10px;
+}
+
+.ds--full .card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 9px 12px 6px;
+  animation: none;
+}
+
+.ds--full .card-head { margin-bottom: 2px; }
+.ds--full .card-sub { display: none; }
+.ds--full .card-title { font-size: 13px; }
+.ds--full .chart-body { flex: 1; min-height: 0; }
+
+/* 重新排布：趋势 + 品类 + 评分 / 档口 + 菜品 + 口碑 / 象限 */
+.ds--full .chart-grid > .card:nth-child(1) { grid-area: 1 / 1 / 2 / 7; }
+.ds--full .chart-grid > .card:nth-child(2) { grid-area: 1 / 7 / 2 / 10; }
+.ds--full .chart-grid > .card:nth-child(6) { grid-area: 1 / 10 / 2 / 13; }
+.ds--full .chart-grid > .card:nth-child(3) { grid-area: 2 / 1 / 3 / 5; }
+.ds--full .chart-grid > .card:nth-child(4) { grid-area: 2 / 5 / 3 / 9; }
+.ds--full .chart-grid > .card:nth-child(5) { grid-area: 2 / 9 / 3 / 13; }
+.ds--full .chart-grid > .card:nth-child(7) { grid-area: 3 / 1 / 4 / 13; }
 
 @keyframes fsIn {
   from { opacity: 0; transform: scale(.985); }
@@ -1338,6 +1448,36 @@ onBeforeUnmount(() => {
 
 .icon-btn:hover { background: rgba(255, 255, 255, .22); }
 .icon-btn.spinning svg { animation: spin .9s linear infinite; }
+
+/* 一屏展示按钮 */
+.screen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .18s ease;
+}
+
+.screen-btn:hover {
+  background: rgba(255, 255, 255, .26);
+  transform: translateY(-1px);
+}
+
+.screen-btn.on {
+  background: #fff;
+  border-color: #fff;
+  color: #b4530b;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+}
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
