@@ -2,8 +2,9 @@
   <div
     class="ds"
     :class="{ 'ds--full': fullscreen, 'ds--loading': loading }"
-    :style="fullscreen ? { '--ds-scale': screenScale } : null"
+    :style="fullscreen ? { '--ds-scale': screenScale, '--ds-w': stageWidth + 'px', '--ds-left': stageLeft + 'px' } : null"
   >
+   <div class="ds-stage">
     <!-- ===== 顶部横幅 ===== -->
     <header class="ds-head">
       <div class="head-left">
@@ -270,6 +271,7 @@
       <span class="dot-sep">·</span>
       仅管理员可见
     </footer>
+   </div>
   </div>
 </template>
 
@@ -1145,17 +1147,31 @@ function chartH(base) {
   return fullscreen.value ? '100%' : base
 }
 
-/** 大屏基准高度：低于该高度时整体等比缩放，保证一屏放得下且不失真 */
+/**
+ * 大屏画布：以 960px 高、1.62 宽高比为基准。
+ * 竖向按视口高度等比缩放；横向限制最大宽度并居中，
+ * 避免超宽窗口把每个卡片拉成又宽又扁的条状。
+ */
 const DS_STAGE_H = 960
+const DS_STAGE_RATIO = 1.5
 const screenScale = ref(1)
+const stageWidth = ref(0)
+const stageLeft = ref(0)
 
 function updateScreenScale() {
   if (!fullscreen.value) {
     screenScale.value = 1
+    stageWidth.value = 0
+    stageLeft.value = 0
     return
   }
-  const h = window.innerHeight || DS_STAGE_H
-  screenScale.value = h >= DS_STAGE_H ? 1 : Math.max(0.35, Number((h / DS_STAGE_H).toFixed(4)))
+  const vw = window.innerWidth || 1440
+  const vh = window.innerHeight || DS_STAGE_H
+  const s = Math.max(0.35, vh / DS_STAGE_H)
+  const w = Math.min(vw / s, DS_STAGE_H * DS_STAGE_RATIO)
+  screenScale.value = Number(s.toFixed(4))
+  stageWidth.value = Math.round(w)
+  stageLeft.value = Math.max(0, Math.round((vw - w * s) / 2))
 }
 
 function onWindowResize() {
@@ -1288,23 +1304,32 @@ onBeforeUnmount(() => {
 .ds--full {
   --ds-scale: 1;
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   z-index: 3000;
+  overflow: hidden;
+  padding: 0;
+  background:
+    radial-gradient(1100px 420px at 50% -8%, rgba(255, 122, 26, .10), transparent 68%),
+    var(--bg);
+  animation: fsIn .28s ease-out both;
+}
+
+/*
+ * 大屏舞台：以 960×1555 的画布排版后整体等比缩放。
+ * 宽度受限并水平居中 → 卡片不会被超宽视口拉扁；高度始终铺满视口。
+ */
+.ds--full .ds-stage {
+  position: absolute;
+  top: 0;
+  left: var(--ds-left, 0px);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  /*
-   * 以 960px 为基准高度布局：视口更矮时整体等比缩小（scale），
-   * 既保证一屏放得下、不出滚动条，也不会把图表压扁变形。
-   */
-  width: calc(100% / var(--ds-scale));
+  gap: 12px;
+  width: var(--ds-w, 100%);
   height: calc(100% / var(--ds-scale));
+  padding: 10px 14px;
   transform: scale(var(--ds-scale));
   transform-origin: top left;
-  overflow: hidden;
-  padding: 12px 16px 12px;
-  animation: fsIn .28s ease-out both;
 }
 
 /* 顶部收成一行标题，减少信息层级 */
@@ -1371,11 +1396,11 @@ onBeforeUnmount(() => {
 /* ---------- 大屏：核心 4 行布局 ---------- */
 .ds--full .chart-grid {
   flex: 1;
-  /* 舞台 960px 时正好放下：趋势 ~199 / 榜单 ~271 / 象限与品类 ~203 */
-  min-height: 695px;
+  /* 舞台 960px 高时正好放下：趋势 ~212 / 榜单 ~254 / 象限与品类 ~224 */
+  min-height: 690px;
   grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: minmax(195px, 1.1fr) minmax(268px, 1.42fr) minmax(200px, 1.08fr);
-  gap: 16px;
+  grid-template-rows: minmax(208px, 1.06fr) minmax(252px, 1.28fr) minmax(224px, 1.14fr);
+  gap: 14px;
 }
 
 /* 第 2 行：销量营收趋势通栏（视觉 C 位） */
@@ -1384,8 +1409,8 @@ onBeforeUnmount(() => {
 .ds--full .card--stall { grid-area: 2 / 1 / 3 / 7; }
 .ds--full .card--dish { grid-area: 2 / 7 / 3 / 13; }
 /* 第 4 行：档口经营象限 | 品类占比 */
-.ds--full .card--quad { grid-area: 3 / 1 / 4 / 10; }
-.ds--full .card--category { grid-area: 3 / 10 / 4 / 13; }
+.ds--full .card--quad { grid-area: 3 / 1 / 4 / 9; }
+.ds--full .card--category { grid-area: 3 / 9 / 4 / 13; }
 
 .ds--full .card {
   display: flex;
@@ -1454,7 +1479,6 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding-top: 2px;
 }
 
 .ds-more-btn {
