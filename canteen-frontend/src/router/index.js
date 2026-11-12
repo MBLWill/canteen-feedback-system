@@ -13,7 +13,7 @@ function getRole() {
   }
 }
 
-/** 首页按角色落地：管理员进数据大屏，商家进订单处理，学生进美食探索 */
+/** 首页按角色落地：管理员进数据大屏，商家进订单处理，学生进美食探索（数据看板已下线） */
 function homePath() {
   const role = getRole()
   if (role === 'ADMIN') return '/admin/dashboard'
@@ -33,7 +33,6 @@ const routes = [
     component: () => import('@/views/Layout.vue'),
     redirect: () => homePath(),
     children: [
-      { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/Statistics.vue'), meta: { title: '数据看板', icon: 'DataLine', staffOnly: true } },
       { path: 'dishes', name: 'DishList', component: () => import('@/views/DishList.vue'), meta: { title: '美食探索', icon: 'Shop' } },
       { path: 'stalls/south', redirect: '/dishes?area=south&floor=1', meta: { hidden: true } },
       { path: 'stalls/north', redirect: '/dishes?area=north&floor=1', meta: { hidden: true } },
@@ -88,10 +87,6 @@ router.beforeEach((to, from, next) => {
   }
   if (to.meta.merchant && role !== 'MERCHANT') {
     return next({ path: homePath() })
-  }
-  // 学生端不提供数据看板，直访也回美食探索
-  if (to.path === '/dashboard' && role === 'STUDENT') {
-    return next({ path: '/dishes' })
   }
   next()
 })

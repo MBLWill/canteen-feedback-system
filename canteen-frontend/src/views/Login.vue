@@ -20,7 +20,7 @@
         <div class="form-head">
           <div class="form-title">{{ activeTab === 'login' ? '欢迎回来 👋' : '创建学生账号' }}</div>
           <div class="form-desc">
-            {{ activeTab === 'login' ? '登录后可以打分评价、收藏菜品、查看数据看板' : '注册后即可参与菜品评价与留言反馈' }}
+            {{ activeTab === 'login' ? '登录后可以打分评价、收藏菜品、查看热销榜单' : '注册后即可参与菜品评价与留言反馈' }}
           </div>
         </div>
 
@@ -107,7 +107,7 @@ const features = [
   { emoji: '🍜', text: '菜品浏览 · 按档口 / 分类 / 评分筛选' },
   { emoji: '⭐', text: '打分评价 · 一人一菜一评，支持匿名' },
   { emoji: '💬', text: '留言反馈 · 管理员在线受理回复' },
-  { emoji: '📊', text: '数据看板 · 排行榜 / 好评占比 / 热门档口' }
+  { emoji: '📊', text: '热销榜单 · 菜品评分排行 / 好评分布' }
 ]
 
 const activeTab = ref('login')

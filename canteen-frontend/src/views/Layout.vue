@@ -282,12 +282,9 @@ const merchantMode = ref('merchant')
 const allChildren = computed(() => router.options.routes.find(r => r.path === '/')?.children || [])
 
 // 学生日常使用菜单（非 admin、非 merchant），管理员/商家「日常使用」也复用这一组
-// staffOnly 的页面（如数据看板）只对管理员/商家展示，学生端不出现
-const studentMenus = computed(() => allChildren.value.filter(i => {
-  if (i.meta?.hidden || i.meta?.admin || i.meta?.merchant) return false
-  if (i.meta?.staffOnly && !userStore.isAdmin && !userStore.isMerchant) return false
-  return true
-}))
+const studentMenus = computed(() => allChildren.value.filter(i =>
+  !i.meta?.hidden && !i.meta?.admin && !i.meta?.merchant
+))
 // 商家档口经营菜单
 const merchantMenus = computed(() => allChildren.value.filter(i =>
   !i.meta?.hidden && !!i.meta?.merchant
@@ -308,7 +305,7 @@ function toggleAdminMode() {
   if (adminMode.value === 'admin' && !route.path.startsWith('/admin')) {
     router.push('/admin/dashboard')
   } else if (adminMode.value === 'daily' && route.path.startsWith('/admin')) {
-    router.push('/dashboard')
+    router.push('/dishes')
   }
 }
 
@@ -317,7 +314,7 @@ function toggleMerchantMode() {
   if (merchantMode.value === 'merchant' && !route.path.startsWith('/merchant')) {
     router.push('/merchant/todos')
   } else if (merchantMode.value === 'daily' && route.path.startsWith('/merchant')) {
-    router.push('/dashboard')
+    router.push('/dishes')
   }
 }
 
