@@ -215,55 +215,6 @@
       </section>
     </div>
 
-    <!-- ===== 大屏模式：次要指标折叠面板（评分分布 / 档口口碑） ===== -->
-    <div v-if="fullscreen" class="ds-more">
-      <button class="ds-more-btn" :class="{ open: moreOpen }" @click="toggleMore">
-        <span class="ds-more-title">更多指标</span>
-        <span class="ds-more-hint">评分分布 · 各档口口碑对比</span>
-        <span class="ds-more-arrow">{{ moreOpen ? '收起' : '展开' }}</span>
-      </button>
-    </div>
-
-    <transition name="ds-drawer">
-      <div v-if="fullscreen && moreOpen" class="ds-drawer">
-        <div class="ds-drawer-head">
-          <span class="ds-drawer-title">更多指标</span>
-          <button class="ds-drawer-close" title="关闭" @click="moreOpen = false">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-        <div class="ds-drawer-body">
-          <section class="ds-drawer-card">
-            <div class="card-head">
-              <div>
-                <span class="card-title">评分分布</span>
-                <span class="card-sub">全校 {{ data.overview?.reviewCount ?? 0 }} 条有效评价 · 平均 {{ Number(data.overview?.avgRating || 0).toFixed(2) }} 分</span>
-              </div>
-            </div>
-            <div v-if="data.ratingDist?.length" class="chart-body">
-              <EChart :option="ratingOption" height="100%" />
-            </div>
-            <el-empty v-else description="暂无评分数据" :image-size="60" />
-          </section>
-
-          <section class="ds-drawer-card">
-            <div class="card-head">
-              <div>
-                <span class="card-title">各档口口碑对比</span>
-                <span class="card-sub">好评率 = 4-5 星占比 · 低于 60% 标红</span>
-              </div>
-            </div>
-            <div v-if="data.stallRating?.length" class="chart-body">
-              <EChart :option="goodRateOption" height="100%" />
-            </div>
-            <el-empty v-else description="暂无评价数据" :image-size="60" />
-          </section>
-        </div>
-      </div>
-    </transition>
-
     <footer class="ds-foot">
       数据来源：菜品销量汇总 / 评价表 · 趋势为近 {{ days }} 天，排行与评分为累计口径
       <span class="dot-sep">·</span>
@@ -296,8 +247,6 @@ const data = ref({
 const days = ref(30)
 const loading = ref(false)
 const fullscreen = ref(false)
-// 大屏下「更多指标」折叠面板（评分分布 / 档口口碑），默认收起
-const moreOpen = ref(false)
 const autoRefresh = ref(false)
 const updatedAt = ref('')
 const selectedStallId = ref(null)
@@ -693,7 +642,7 @@ const stallRankOption = computed(() => {
       data: list.map(i => i.stallName),
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: '#5b6472', fontSize: 12, interval: 0, formatter: v => (v.length > 6 ? v.slice(0, 6) + '…' : v) }
+      axisLabel: { color: '#5b6472', fontSize: 12, interval: 0, formatter: v => (v.length > (fullscreen.value ? 5 : 6) ? v.slice(0, fullscreen.value ? 5 : 6) + '…' : v) }
     },
     series: [
       {
@@ -777,7 +726,7 @@ const dishRankOption = computed(() => {
       data: list.map(i => i.dishName),
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: '#5b6472', fontSize: 12, interval: 0, formatter: v => (v.length > 7 ? v.slice(0, 7) + '…' : v) }
+      axisLabel: { color: '#5b6472', fontSize: 12, interval: 0, formatter: v => (v.length > (fullscreen.value ? 6 : 7) ? v.slice(0, fullscreen.value ? 6 : 7) + '…' : v) }
     },
     series: [
       {
@@ -813,7 +762,10 @@ const dishRankOption = computed(() => {
 
 /* ---------- 档口好评率 ---------- */
 const goodRateOption = computed(() => {
-  const list = [...(data.value.stallRating || [])].sort((a, b) => a.goodRate - b.goodRate)
+  const src = [...(data.value.stallRating || [])].sort((a, b) => a.goodRate - b.goodRate)
+  // 大屏下卡片较矮，横向条形收敛到好评率前 8 名，避免 12 条标签挤成一团
+  const list = fullscreen.value ? src.slice(-8) : src
+  const vertical = false
   return {
     animationDuration: 800,
     animationDurationUpdate: 480,
@@ -830,38 +782,64 @@ const goodRateOption = computed(() => {
           `评价数：${raw.reviewCount || 0} 条`
       }
     },
-    grid: { left: 6, right: 58, top: 20, bottom: 10, containLabel: true },
-    xAxis: {
-      type: 'value', max: 100,
-      splitLine: { lineStyle: { color: '#f1f4f8' } },
-      axisLabel: { color: '#98a1ad', fontSize: 12, formatter: '{value}%' }
-    },
-    yAxis: {
-      type: 'category',
-      data: list.map(i => i.stallName),
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: '#5b6472', fontSize: 12, interval: 0, formatter: v => (v.length > 6 ? v.slice(0, 6) + '…' : v) }
-    },
+    grid: vertical
+      ? { left: 8, right: 12, top: 26, bottom: 4, containLabel: true }
+      : { left: 6, right: 58, top: 20, bottom: 10, containLabel: true },
+    xAxis: vertical
+      ? {
+          type: 'category',
+          data: list.map(i => i.stallName),
+          axisLine: { lineStyle: { color: '#e2e6ec' } },
+          axisTick: { show: false },
+          axisLabel: { color: '#5b6472', fontSize: 11, interval: 0, rotate: 0, formatter: v => (v.length > 4 ? v.slice(0, 4) + '…' : v) }
+        }
+      : {
+          type: 'value', max: 100,
+          splitLine: { lineStyle: { color: '#f1f4f8' } },
+          axisLabel: { color: '#98a1ad', fontSize: 12, formatter: '{value}%' }
+        },
+    yAxis: vertical
+      ? {
+          type: 'value', max: 100,
+          splitNumber: 3,
+          splitLine: { lineStyle: { color: '#f1f4f8' } },
+          axisLabel: { color: '#98a1ad', fontSize: 11, formatter: '{value}%' }
+        }
+      : {
+          type: 'category',
+          data: list.map(i => i.stallName),
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { color: '#5b6472', fontSize: 12, interval: 0, formatter: v => (v.length > 6 ? v.slice(0, 6) + '…' : v) }
+        },
     series: [
       {
         type: 'bar',
-        barMaxWidth: 16,
-        animationDelay: idx => idx * 40,
+        barMaxWidth: vertical ? 26 : 16,
+        animationDelay: idx => idx * 30,
         data: list.map(i => ({
           value: i.goodRate,
           itemStyle: {
-            borderRadius: [0, 7, 7, 0],
+            borderRadius: vertical ? [6, 6, 0, 0] : [0, 7, 7, 0],
             color: i.goodRate >= 80 ? '#22c55e' : i.goodRate >= 60 ? '#f59e0b' : '#ef4444'
           }
         })),
         label: {
           show: true,
-          position: 'right',
+          position: vertical ? 'top' : 'right',
           formatter: p => Number(p.value || 0).toFixed(1) + '%',
           color: '#8a93a0',
           fontSize: 11
-        }
+        },
+        markLine: vertical
+          ? {
+              silent: true,
+              symbol: 'none',
+              lineStyle: { type: 'dashed', color: '#c9cfd8', width: 1 },
+              label: { formatter: '60%', color: '#98a1ad', fontSize: 10 },
+              data: [{ yAxis: 60 }]
+            }
+          : undefined
       }
     ]
   }
@@ -1206,13 +1184,8 @@ function onKeydown(e) {
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {})
   }
 }
-function toggleMore() {
-  moreOpen.value = !moreOpen.value
-}
-
 watch(fullscreen, v => {
   document.body.style.overflow = v ? 'hidden' : ''
-  if (!v) moreOpen.value = false
   updateScreenScale()
   // 进出大屏后容器尺寸变化，让图表按新尺寸重绘
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
@@ -1396,21 +1369,24 @@ onBeforeUnmount(() => {
 /* ---------- 大屏：核心 4 行布局 ---------- */
 .ds--full .chart-grid {
   flex: 1;
-  /* 舞台 960px 高时正好放下：趋势 ~212 / 榜单 ~254 / 象限与品类 ~224 */
-  min-height: 690px;
+  /* 4 行：趋势 / 档口·菜品 / 象限·品类 / 评分·口碑，每行高度充足 */
+  min-height: 688px;
   grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: minmax(208px, 1.06fr) minmax(252px, 1.28fr) minmax(224px, 1.14fr);
-  gap: 14px;
+  grid-template-rows: minmax(170px, 1.18fr) minmax(210px, 1.5fr) minmax(170px, 1.16fr) minmax(170px, 1.16fr);
+  gap: 12px;
 }
 
-/* 第 2 行：销量营收趋势通栏（视觉 C 位） */
+/* 第 1 行：销量营收趋势通栏（视觉 C 位） */
 .ds--full .card--trend { grid-area: 1 / 1 / 2 / 13; }
-/* 第 3 行：档口销量排行 | 菜品 TOP8 */
+/* 第 2 行：档口销量排行 | 菜品 TOP8（横向条形，给足高度） */
 .ds--full .card--stall { grid-area: 2 / 1 / 3 / 7; }
 .ds--full .card--dish { grid-area: 2 / 7 / 3 / 13; }
-/* 第 4 行：档口经营象限 | 品类占比 */
-.ds--full .card--quad { grid-area: 3 / 1 / 4 / 9; }
-.ds--full .card--category { grid-area: 3 / 9 / 4 / 13; }
+/* 第 3 行：档口经营象限 | 品类占比 */
+.ds--full .card--quad { grid-area: 3 / 1 / 4 / 7; }
+.ds--full .card--category { grid-area: 3 / 7 / 4 / 13; }
+/* 第 4 行：评分分布 | 各档口口碑对比（口碑横向条形，收敛前 8） */
+.ds--full .card--rate { grid-area: 4 / 1 / 5 / 7; }
+.ds--full .card--praise { grid-area: 4 / 7 / 5 / 13; }
 
 .ds--full .card {
   display: flex;
@@ -1426,12 +1402,6 @@ onBeforeUnmount(() => {
 .ds--full .card:hover {
   transform: none;
   box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 12px 30px rgba(16, 24, 40, .07);
-}
-
-/* 次要指标移入折叠面板，默认不出现在主屏（放在 .card 之后才能覆盖 display） */
-.ds--full .chart-grid > .card.card--rate,
-.ds--full .chart-grid > .card.card--praise {
-  display: none;
 }
 
 /* 标题区与图表区用细线分开，标题加粗放大 */
@@ -1473,131 +1443,6 @@ onBeforeUnmount(() => {
  * 与其把三行图表压成薄片，不如给足高度、让页面自然滚动。
  */
 
-
-/* ---------- 大屏：更多指标入口 ---------- */
-.ds-more {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-}
-
-.ds-more-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 28px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
-  box-shadow: var(--shadow-xs);
-  transition: all .18s ease;
-}
-
-.ds-more-btn:hover {
-  border-color: var(--brand-line);
-  transform: translateY(-1px);
-}
-
-.ds-more-btn.open {
-  background: var(--brand-soft);
-  border-color: var(--brand-line);
-}
-
-.ds-more-title { font-size: 12.5px; font-weight: 800; color: var(--text-1); }
-.ds-more-hint { font-size: 12px; font-weight: 500; color: var(--text-3); }
-.ds-more-arrow { font-size: 12px; font-weight: 700; color: var(--brand); }
-
-/* ---------- 大屏：更多指标抽屉 ---------- */
-.ds-drawer {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  /* 让出顶部标题+指标带，底部让出「更多指标」按钮，中间整块交给两张图 */
-  top: 96px;
-  bottom: 52px;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  padding: 16px 18px 16px;
-  border-radius: 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 20px 52px rgba(16, 24, 40, .2);
-}
-
-.ds-drawer-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.ds-drawer-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--text-1);
-}
-
-.ds-drawer-close {
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-2);
-  cursor: pointer;
-  transition: all .16s ease;
-}
-
-.ds-drawer-close:hover {
-  color: var(--brand);
-  border-color: var(--brand-line);
-}
-
-.ds-drawer-body {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.ds-drawer-card {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  padding: 14px 18px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.ds-drawer-card .card-head {
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.ds-drawer-card .card-title { font-size: 14px; font-weight: 800; }
-.ds-drawer-card .card-sub { display: block; margin-top: 3px; font-size: 11.5px; color: var(--text-3); }
-.ds-drawer-card .chart-body { flex: 1; min-height: 0; }
-
-.ds-drawer-enter-active,
-.ds-drawer-leave-active {
-  transition: opacity .22s ease, transform .22s ease;
-}
-
-.ds-drawer-enter-from,
-.ds-drawer-leave-to {
-  opacity: 0;
-  transform: translateY(16px);
-}
 
 @keyframes fsIn {
   from { opacity: 0; }
