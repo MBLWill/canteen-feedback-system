@@ -162,7 +162,7 @@
                 v-model:current-page="stallPage"
                 v-model:page-size="stallPageSize"
                 :total="sortedStalls.length"
-                :page-sizes="[STALL_PAGE_MIN, 12, 24, 48]"
+                :page-sizes="[STALL_PAGE_MIN, 8, 12, 24]"
                 layout="total, sizes, prev, pager, next"
                 background
                 @current-change="onStallPageChange"
@@ -291,8 +291,8 @@ const stalls = ref([])
 const stallsLoading = ref(false)
 // 档口行右侧展示的菜品数（后端按评分降序返回）
 const STALL_DISH_LIMIT = 3
-// 档口分页：每页条数下限，避免一页只放一两个档口
-const STALL_PAGE_MIN = 6
+// 档口分页：每页固定 4 个档口为下限，避免一页只放一两个档口
+const STALL_PAGE_MIN = 4
 const stallPage = ref(1)
 const stallPageSize = ref(STALL_PAGE_MIN)
 
