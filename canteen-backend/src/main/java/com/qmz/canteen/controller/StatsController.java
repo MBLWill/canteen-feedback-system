@@ -2,6 +2,7 @@ package com.qmz.canteen.controller;
 
 import com.qmz.canteen.common.Result;
 import com.qmz.canteen.service.StatsService;
+import com.qmz.canteen.vo.DashboardVO;
 import com.qmz.canteen.vo.DishRankVO;
 import com.qmz.canteen.vo.DishScatterVO;
 import com.qmz.canteen.vo.OverviewVO;
@@ -72,5 +73,13 @@ public class StatsController {
     @GetMapping("/stall-scatter")
     public Result<List<StallScatterVO>> stallScatter() {
         return Result.success(statsService.stallScatter());
+    }
+
+    /** 数据大屏：一次返回核心指标、销量趋势、品类/档口/菜品排行、评分分布 */
+    @GetMapping("/dashboard")
+    public Result<DashboardVO> dashboard(
+            @RequestParam(defaultValue = "30") @Min(value = 1, message = "天数范围为1-365")
+            @Max(value = 365, message = "天数范围为1-365") Integer days) {
+        return Result.success(statsService.dashboard(days));
     }
 }

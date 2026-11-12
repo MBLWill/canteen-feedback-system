@@ -11,6 +11,8 @@ const props = defineProps({
   height: { type: String, default: '360px' }
 })
 
+const emit = defineEmits(['click'])
+
 const chartRef = ref(null)
 const instance = shallowRef(null)
 
@@ -25,6 +27,8 @@ function handleResize() {
 
 onMounted(() => {
   instance.value = echarts.init(chartRef.value)
+  // 点击图形时把事件透出给父组件（setOption 不会移除该监听）
+  instance.value.on('click', params => emit('click', params))
   render()
   window.addEventListener('resize', handleResize)
 })

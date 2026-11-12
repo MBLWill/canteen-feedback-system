@@ -27,3 +27,8 @@ export function getDishScatter(limit = 0) {
 export function getStallScatter() {
   return request.get('/stats/stall-scatter')
 }
+
+/** 数据大屏聚合数据 */
+export function getDashboard(days = 30) {
+  return request.get('/stats/dashboard', { params: { days } })
+}

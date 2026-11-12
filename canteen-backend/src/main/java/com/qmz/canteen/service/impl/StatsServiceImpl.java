@@ -3,6 +3,7 @@ package com.qmz.canteen.service.impl;
 import com.qmz.canteen.common.PageResult;
 import com.qmz.canteen.mapper.StatsMapper;
 import com.qmz.canteen.service.StatsService;
+import com.qmz.canteen.vo.DashboardVO;
 import com.qmz.canteen.vo.DishRankVO;
 import com.qmz.canteen.vo.DishScatterVO;
 import com.qmz.canteen.vo.OverviewVO;
@@ -178,5 +179,111 @@ public class StatsServiceImpl implements StatsService {
 
     private Double toDouble(Object value) {
         return value == null ? 0D : ((Number) value).doubleValue();
+    }
+
+    @Override
+    public DashboardVO dashboard(Integer days) {
+        int d = days == null || days < 1 ? 30 : Math.min(days, 365);
+        DashboardVO vo = new DashboardVO();
+
+        // ---- 核心指标 ----
+        Map<String, Object> ov = statsMapper.selectDashboardOverview(goodThreshold);
+        DashboardVO.Overview overview = new DashboardVO.Overview();
+        overview.setStallCount(toLong(ov.get("stallCount")));
+        overview.setDishCount(toLong(ov.get("dishCount")));
+        overview.setReviewCount(toLong(ov.get("reviewCount")));
+        overview.setStudentCount(toLong(ov.get("studentCount")));
+        overview.setTotalSalesQty(toLong(ov.get("totalSalesQty")));
+        overview.setTotalSalesAmount(toDecimal(ov.get("totalSalesAmount")));
+        overview.setLatestDayQty(toLong(ov.get("latestDayQty")));
+        overview.setLatestDayAmount(toDecimal(ov.get("latestDayAmount")));
+        overview.setAvgDailyQty(toLong(ov.get("avgDailyQty")));
+        overview.setAvgRating(toDouble(ov.get("avgRating")));
+        overview.setGoodRate(toDouble(ov.get("goodRate")));
+        Object dataDate = ov.get("dataDate");
+        overview.setDataDate(dataDate == null ? null : dataDate.toString());
+        vo.setOverview(overview);
+
+        // ---- 销量趋势 ----
+        vo.setSalesTrend(statsMapper.selectSalesTrend(d).stream().map(m -> {
+            DashboardVO.TrendPoint p = new DashboardVO.TrendPoint();
+            p.setDate(str(m.get("date")));
+            p.setQuantity(toLong(m.get("quantity")));
+            p.setAmount(toDecimal(m.get("amount")));
+            return p;
+        }).toList());
+
+        // ---- 品类销量 ----
+        vo.setCategorySales(statsMapper.selectCategorySales().stream().map(m -> {
+            DashboardVO.CategorySales c = new DashboardVO.CategorySales();
+            c.setCategory(str(m.get("category")));
+            c.setQuantity(toLong(m.get("quantity")));
+            c.setAmount(toDecimal(m.get("amount")));
+            return c;
+        }).toList());
+
+        // ---- 档口销量排行 ----
+        vo.setStallRank(statsMapper.selectStallSalesRank(10).stream().map(m -> {
+            DashboardVO.StallSales s = new DashboardVO.StallSales();
+            s.setStallId(toLong(m.get("stallId")));
+            s.setStallName(str(m.get("stallName")));
+            s.setWindowNo(str(m.get("windowNo")));
+            s.setAreaLabel(str(m.get("areaLabel")));
+            s.setQuantity(toLong(m.get("quantity")));
+            s.setAmount(toDecimal(m.get("amount")));
+            s.setAvgRating(toDouble(m.get("avgRating")));
+            return s;
+        }).toList());
+
+        // ---- 菜品销量排行（多取一些，便于按档口筛选） ----
+        vo.setDishRank(statsMapper.selectDishSalesRank(20).stream().map(m -> {
+            DashboardVO.DishSales d2 = new DashboardVO.DishSales();
+            d2.setDishId(toLong(m.get("dishId")));
+            d2.setDishName(str(m.get("dishName")));
+            d2.setImage(str(m.get("image")));
+            d2.setCategory(str(m.get("category")));
+            d2.setStallId(toLong(m.get("stallId")));
+            d2.setStallName(str(m.get("stallName")));
+            d2.setPrice(toDecimal(m.get("price")));
+            d2.setQuantity(toLong(m.get("quantity")));
+            d2.setAmount(toDecimal(m.get("amount")));
+            return d2;
+        }).toList());
+
+        // ---- 评分分布 ----
+        vo.setRatingDist(statsMapper.selectRatingDist().stream().map(m -> {
+            DashboardVO.RatingItem r = new DashboardVO.RatingItem();
+            r.setStar(m.get("star") == null ? 0 : ((Number) m.get("star")).intValue());
+            r.setCount(toLong(m.get("count")));
+            return r;
+        }).toList());
+
+        // ---- 各档口口碑 ----
+        vo.setStallRating(statsMapper.selectStallRating(goodThreshold).stream().map(m -> {
+            DashboardVO.StallRating s = new DashboardVO.StallRating();
+            s.setStallId(toLong(m.get("stallId")));
+            s.setStallName(str(m.get("stallName")));
+            s.setWindowNo(str(m.get("windowNo")));
+            s.setAvgRating(toDouble(m.get("avgRating")));
+            s.setReviewCount(toLong(m.get("reviewCount")));
+            s.setGoodRate(toDouble(m.get("goodRate")));
+            return s;
+        }).toList());
+
+        return vo;
+    }
+
+    private static BigDecimal toDecimal(Object value) {
+        if (value == null) {
+            return BigDecimal.ZERO;
+        }
+        if (value instanceof BigDecimal bd) {
+            return bd;
+        }
+        return new BigDecimal(value.toString());
+    }
+
+    private static String str(Object value) {
+        return value == null ? null : value.toString();
     }
 }

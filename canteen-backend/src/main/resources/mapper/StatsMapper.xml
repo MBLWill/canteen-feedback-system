@@ -200,4 +200,122 @@
         WHERE deleted = 0 AND status = 1 AND dish_id = #{dishId}
     </select>
 
+    <!-- ===================== 数据大屏 ===================== -->
+
+    <select id="selectDashboardOverview" resultType="java.util.LinkedHashMap">
+        SELECT
+            (SELECT COUNT(*) FROM canteen_stall WHERE deleted = 0 AND status = 1) AS stallCount,
+            (SELECT COUNT(*) FROM dish WHERE deleted = 0 AND status = 1)          AS dishCount,
+            (SELECT COUNT(*) FROM dish_review WHERE deleted = 0 AND status = 1)  AS reviewCount,
+            (SELECT COUNT(*) FROM sys_user WHERE deleted = 0 AND role = 'STUDENT') AS studentCount,
+            (SELECT IFNULL(SUM(quantity), 0) FROM dish_sales)                     AS totalSalesQty,
+            (SELECT IFNULL(ROUND(SUM(amount), 2), 0) FROM dish_sales)             AS totalSalesAmount,
+            (SELECT IFNULL(SUM(quantity), 0) FROM dish_sales
+               WHERE sale_date = (SELECT MAX(sale_date) FROM dish_sales))          AS latestDayQty,
+            (SELECT IFNULL(ROUND(SUM(amount), 2), 0) FROM dish_sales
+               WHERE sale_date = (SELECT MAX(sale_date) FROM dish_sales))          AS latestDayAmount,
+            (SELECT IFNULL(ROUND(SUM(quantity) / NULLIF(COUNT(DISTINCT sale_date), 0)), 0)
+               FROM dish_sales)                                                     AS avgDailyQty,
+            (SELECT IFNULL(ROUND(AVG(rating), 2), 0) FROM dish_review
+               WHERE deleted = 0 AND status = 1)                                    AS avgRating,
+            (SELECT IFNULL(ROUND(SUM(CASE WHEN rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
+                    / NULLIF(COUNT(*), 0) * 100, 2), 0)
+               FROM dish_review WHERE deleted = 0 AND status = 1)                   AS goodRate,
+            (SELECT DATE_FORMAT(MAX(sale_date), '%Y-%m-%d') FROM dish_sales)        AS dataDate
+    </select>
+
+    <select id="selectSalesTrend" resultType="java.util.LinkedHashMap">
+        SELECT
+            DATE_FORMAT(sale_date, '%Y-%m-%d') AS `date`,
+            IFNULL(SUM(quantity), 0)           AS quantity,
+            IFNULL(ROUND(SUM(amount), 2), 0)   AS amount
+        FROM dish_sales
+        WHERE sale_date &gt;= DATE_SUB((SELECT MAX(sale_date) FROM dish_sales), INTERVAL #{days} DAY)
+        GROUP BY sale_date
+        ORDER BY sale_date ASC
+    </select>
+
+    <select id="selectCategorySales" resultType="java.util.LinkedHashMap">
+        SELECT
+            IFNULL(NULLIF(d.category, ''), '其他') AS category,
+            IFNULL(SUM(ds.quantity), 0)           AS quantity,
+            IFNULL(ROUND(SUM(ds.amount), 2), 0)   AS amount
+        FROM dish_sales ds
+        INNER JOIN dish d ON d.id = ds.dish_id AND d.deleted = 0
+        GROUP BY IFNULL(NULLIF(d.category, ''), '其他')
+        ORDER BY quantity DESC
+    </select>
+
+    <select id="selectStallSalesRank" resultType="java.util.LinkedHashMap">
+        SELECT
+            s.id                     AS stallId,
+            s.name                   AS stallName,
+            s.window_no              AS windowNo,
+            CONCAT(CASE s.area WHEN 'north' THEN '北区' ELSE '南区' END, ' ', s.floor, ' 楼') AS areaLabel,
+            IFNULL(SUM(ds.quantity), 0)         AS quantity,
+            IFNULL(ROUND(SUM(ds.amount), 2), 0) AS amount,
+            IFNULL((SELECT ROUND(AVG(r.rating), 2)
+                      FROM dish_review r
+                      INNER JOIN dish d2 ON d2.id = r.dish_id AND d2.stall_id = s.id AND d2.deleted = 0
+                     WHERE r.deleted = 0 AND r.status = 1), 0) AS avgRating
+        FROM dish_sales ds
+        INNER JOIN canteen_stall s ON s.id = ds.stall_id AND s.deleted = 0
+        GROUP BY s.id, s.name, s.window_no, s.area, s.floor
+        ORDER BY quantity DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectDishSalesRank" resultType="java.util.LinkedHashMap">
+        SELECT
+            d.id                     AS dishId,
+            d.name                   AS dishName,
+            d.image                  AS image,
+            d.category               AS category,
+            d.price                  AS price,
+            s.id                     AS stallId,
+            s.name                   AS stallName,
+            IFNULL(SUM(ds.quantity), 0)         AS quantity,
+            IFNULL(ROUND(SUM(ds.amount), 2), 0) AS amount
+        FROM dish_sales ds
+        INNER JOIN dish d ON d.id = ds.dish_id AND d.deleted = 0
+        INNER JOIN canteen_stall s ON s.id = d.stall_id AND s.deleted = 0
+        GROUP BY d.id, d.name, d.image, d.category, d.price, s.id, s.name
+        ORDER BY quantity DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectRatingDist" resultType="java.util.LinkedHashMap">
+        SELECT 5 AS star, IFNULL(SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END), 0) AS count
+          FROM dish_review WHERE deleted = 0 AND status = 1
+        UNION ALL
+        SELECT 4, IFNULL(SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END), 0)
+          FROM dish_review WHERE deleted = 0 AND status = 1
+        UNION ALL
+        SELECT 3, IFNULL(SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END), 0)
+          FROM dish_review WHERE deleted = 0 AND status = 1
+        UNION ALL
+        SELECT 2, IFNULL(SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END), 0)
+          FROM dish_review WHERE deleted = 0 AND status = 1
+        UNION ALL
+        SELECT 1, IFNULL(SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END), 0)
+          FROM dish_review WHERE deleted = 0 AND status = 1
+    </select>
+
+    <select id="selectStallRating" resultType="java.util.LinkedHashMap">
+        SELECT
+            s.id                     AS stallId,
+            s.name                   AS stallName,
+            s.window_no              AS windowNo,
+            IFNULL(ROUND(AVG(r.rating), 2), 0) AS avgRating,
+            COUNT(r.id)              AS reviewCount,
+            IFNULL(ROUND(SUM(CASE WHEN r.rating &gt;= #{goodThreshold} THEN 1 ELSE 0 END)
+                   / NULLIF(COUNT(r.id), 0) * 100, 2), 0) AS goodRate
+        FROM canteen_stall s
+        LEFT JOIN dish d ON d.stall_id = s.id AND d.deleted = 0
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE s.deleted = 0
+        GROUP BY s.id, s.name, s.window_no
+        ORDER BY goodRate DESC, avgRating DESC
+    </select>
+
 </mapper>

@@ -43,6 +43,7 @@ const routes = [
       { path: 'merchant/reviews', name: 'MerchantReviews', component: () => import('@/views/merchant/MerchantReviews.vue'), meta: { title: '学生评价', icon: 'Star', merchant: true } },
       { path: 'feedbacks', name: 'FeedbackList', component: () => import('@/views/FeedbackList.vue'), meta: { title: '留言反馈', icon: 'ChatDotRound' } },
       { path: 'notices', name: 'NoticeList', component: () => import('@/views/NoticeList.vue'), meta: { title: '食堂公告', icon: 'Bell' } },
+      { path: 'admin/dashboard', name: 'DataScreen', component: () => import('@/views/admin/DataScreen.vue'), meta: { title: '数据大屏', icon: 'Monitor', admin: true } },
       { path: 'admin/banners', name: 'BannerManage', component: () => import('@/views/admin/BannerManage.vue'), meta: { title: '轮播广告', icon: 'Picture', admin: true } },
       { path: 'admin/stalls', name: 'StallManage', component: () => import('@/views/admin/StallManage.vue'), meta: { title: '商家管理', icon: 'Shop', admin: true } },
       { path: 'admin/stalls/:id', name: 'AdminStallDishes', component: () => import('@/views/admin/AdminStallDishes.vue'), meta: { hidden: true, title: '档口菜单', admin: true } },

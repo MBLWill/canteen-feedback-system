@@ -1,5 +1,6 @@
 package com.qmz.canteen.service;
 
+import com.qmz.canteen.vo.DashboardVO;
 import com.qmz.canteen.vo.DishRankVO;
 import com.qmz.canteen.vo.DishScatterVO;
 import com.qmz.canteen.vo.OverviewVO;
@@ -27,4 +28,7 @@ public interface StatsService {
 
     /** 综合档口评价：学生评分 × 学校卫生分 */
     List<StallScatterVO> stallScatter();
+
+    /** 数据大屏聚合数据：核心指标 + 销量趋势 + 品类/档口/菜品排行 + 评分分布 */
+    DashboardVO dashboard(Integer days);
 }
