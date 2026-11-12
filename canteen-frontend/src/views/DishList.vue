@@ -182,13 +182,11 @@
           <div v-if="total > query.size && !isStallMode" class="plaza-pager">
             <el-pagination
               v-model:current-page="query.current"
-              v-model:page-size="query.size"
+              :page-size="query.size"
               :total="total"
-              :page-sizes="[24, 48, 96]"
               layout="total, prev, pager, next"
               background
-              @current-change="loadData"
-              @size-change="loadData"
+              @current-change="onDishPageChange"
             />
           </div>
         </div>
@@ -262,7 +260,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DishCard from '@/components/DishCard.vue'
 import BannerCarousel from '@/components/BannerCarousel.vue'
@@ -296,9 +294,12 @@ const STALL_PAGE_MIN = 4
 const stallPage = ref(1)
 const stallPageSize = ref(STALL_PAGE_MIN)
 
+// 菜品列表每页固定 4 行，每行条数按实际列数动态计算
+const DISH_ROWS = 4
+
 const query = reactive({
   current: 1,
-  size: 48,
+  size: DISH_ROWS * 5,
   keyword: '',
   stallId: route.query.stallId ? Number(route.query.stallId) : undefined,
   area: normalizeArea(route.query.area),
@@ -411,6 +412,41 @@ const stallPageCount = computed(() => {
   return Math.max(1, Math.ceil(sortedStalls.value.length / size))
 })
 
+/** 菜品网格当前实际列数（auto-fill 会随宽度变化） */
+function measureDishCols() {
+  const el = document.querySelector('.dish-grid')
+  if (!el) return 0
+  const cols = getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length
+  return cols > 0 ? cols : 0
+}
+
+/** 按「每页 4 行」对齐每页条数，列数变化时才重新加载 */
+function applyDishPageSize() {
+  const cols = measureDishCols()
+  if (!cols) return
+  const size = cols * DISH_ROWS
+  if (size !== query.size) {
+    query.size = size
+    query.current = 1
+    loadData()
+  }
+}
+
+// 窗口宽度变化会让网格列数变化，列数变了就重新对齐每页条数
+let resizeTimer = null
+function onWindowResize() {
+  if (isStallMode.value) return
+  clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(applyDishPageSize, 350)
+}
+
+async function onDishPageChange() {
+  await nextTick()
+  const el = document.querySelector('.dish-grid')
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  loadData()
+}
+
 /** 翻页后回到列表顶部，避免停在上一页的底部 */
 async function backToStallTop() {
   await nextTick()
@@ -427,15 +463,19 @@ function onStallSizeChange() {
   backToStallTop()
 }
 
-function onSortCommand(cmd) {
+async function onSortCommand(cmd) {
   sortMode.value = cmd
   query.current = 1
   stallPage.value = 1
   if (cmd === 'stall') {
     loadStalls()
-  } else {
-    loadData()
+    return
   }
+  // 菜品模式的网格刚挂载，等 DOM 就绪后按实际列数算出「4 行」的条数再请求
+  await nextTick()
+  const cols = measureDishCols()
+  if (cols) query.size = cols * DISH_ROWS
+  loadData()
 }
 
 function selectStall(st) {
@@ -539,6 +579,7 @@ watch(
 )
 
 onMounted(async () => {
+  window.addEventListener('resize', onWindowResize)
   const [catRes] = await Promise.all([listCategories(), loadRanking(), loadBestList()])
   categories.value = catRes.data
   // 默认档口排序：加载档口列表（含各档口热评菜品）；其余排序模式才加载菜品
@@ -547,6 +588,11 @@ onMounted(async () => {
   } else if (!records.value.length) {
     loadData()
   }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onWindowResize)
+  clearTimeout(resizeTimer)
 })
 </script>
 
@@ -743,6 +789,7 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 14px;
   min-height: 120px;
+  scroll-margin-top: 72px;
 }
 
 .plaza-pager {
