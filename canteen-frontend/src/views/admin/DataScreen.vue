@@ -1,5 +1,9 @@
 <template>
-  <div class="ds" :class="{ 'ds--full': fullscreen, 'ds--loading': loading }">
+  <div
+    class="ds"
+    :class="{ 'ds--full': fullscreen, 'ds--loading': loading }"
+    :style="fullscreen ? { '--ds-scale': screenScale } : null"
+  >
     <!-- ===== 顶部横幅 ===== -->
     <header class="ds-head">
       <div class="head-left">
@@ -501,7 +505,7 @@ const trendOption = computed(() => {
     },
     // 图例由卡片头部（.legend-inline）承担，图表内不再重复
     legend: { show: false },
-    grid: { left: 8, right: 12, top: 14, bottom: 4, containLabel: true },
+    grid: { left: 8, right: 12, top: 16, bottom: 16, containLabel: true },
     xAxis: {
       type: 'category',
       data: list.map(i => (i.date || '').slice(5)),
@@ -824,7 +828,7 @@ const goodRateOption = computed(() => {
           `评价数：${raw.reviewCount || 0} 条`
       }
     },
-    grid: { left: 6, right: 50, top: 18, bottom: 8, containLabel: true },
+    grid: { left: 6, right: 58, top: 20, bottom: 10, containLabel: true },
     xAxis: {
       type: 'value', max: 100,
       splitLine: { lineStyle: { color: '#f1f4f8' } },
@@ -1141,6 +1145,23 @@ function chartH(base) {
   return fullscreen.value ? '100%' : base
 }
 
+/** 大屏基准高度：低于该高度时整体等比缩放，保证一屏放得下且不失真 */
+const DS_STAGE_H = 960
+const screenScale = ref(1)
+
+function updateScreenScale() {
+  if (!fullscreen.value) {
+    screenScale.value = 1
+    return
+  }
+  const h = window.innerHeight || DS_STAGE_H
+  screenScale.value = h >= DS_STAGE_H ? 1 : Math.max(0.35, Number((h / DS_STAGE_H).toFixed(4)))
+}
+
+function onWindowResize() {
+  updateScreenScale()
+}
+
 async function toggleFullscreen() {
   const next = !fullscreen.value
   fullscreen.value = next
@@ -1160,6 +1181,7 @@ async function toggleFullscreen() {
 /** 用户用系统方式退出全屏时同步内部状态 */
 function onFsChange() {
   if (!document.fullscreenElement && fullscreen.value) fullscreen.value = false
+  updateScreenScale()
 }
 
 function onKeydown(e) {
@@ -1175,6 +1197,9 @@ function toggleMore() {
 watch(fullscreen, v => {
   document.body.style.overflow = v ? 'hidden' : ''
   if (!v) moreOpen.value = false
+  updateScreenScale()
+  // 进出大屏后容器尺寸变化，让图表按新尺寸重绘
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
 })
 
 /* ---------- 数据加载 ---------- */
@@ -1204,7 +1229,9 @@ onMounted(async () => {
   tickClock()
   clockTimer = setInterval(tickClock, 1000)
   window.addEventListener('keydown', onKeydown)
+  window.addEventListener('resize', onWindowResize)
   document.addEventListener('fullscreenchange', onFsChange)
+  updateScreenScale()
   await loadAll()
 })
 
@@ -1217,6 +1244,7 @@ onBeforeUnmount(() => {
   if (autoTimer) clearInterval(autoTimer)
   if (rafId) cancelAnimationFrame(rafId)
   window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('resize', onWindowResize)
   document.removeEventListener('fullscreenchange', onFsChange)
   if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {})
   document.body.style.overflow = ''
@@ -1258,17 +1286,25 @@ onBeforeUnmount(() => {
 /* 全屏大屏模式：覆盖整个视口 */
 /* 大屏模式：铺满视口，一屏装下全部图表（不滚动） */
 .ds--full {
+  --ds-scale: 1;
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   z-index: 3000;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  /* 空间足够时一屏铺满；视口过矮时改为滚动，绝不把图表压扁 */
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 14px 18px 16px;
-  animation: fsIn .3s cubic-bezier(.22, .8, .3, 1) both;
+  /*
+   * 以 960px 为基准高度布局：视口更矮时整体等比缩小（scale），
+   * 既保证一屏放得下、不出滚动条，也不会把图表压扁变形。
+   */
+  width: calc(100% / var(--ds-scale));
+  height: calc(100% / var(--ds-scale));
+  transform: scale(var(--ds-scale));
+  transform-origin: top left;
+  overflow: hidden;
+  padding: 12px 16px 12px;
+  animation: fsIn .28s ease-out both;
 }
 
 /* 顶部收成一行标题，减少信息层级 */
@@ -1335,13 +1371,10 @@ onBeforeUnmount(() => {
 /* ---------- 大屏：核心 4 行布局 ---------- */
 .ds--full .chart-grid {
   flex: 1;
-  /*
-   * 三行给足最小高度（趋势 210 / 榜单 280 / 象限与品类 230），
-   * 视口放不下时整页滚动，而不是把图表压成薄片。
-   */
-  min-height: 752px;
+  /* 舞台 960px 时正好放下：趋势 ~199 / 榜单 ~271 / 象限与品类 ~203 */
+  min-height: 695px;
   grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: minmax(210px, 1.18fr) minmax(280px, 1.5fr) minmax(230px, 1.15fr);
+  grid-template-rows: minmax(195px, 1.1fr) minmax(268px, 1.42fr) minmax(200px, 1.08fr);
   gap: 16px;
 }
 
@@ -1414,20 +1447,7 @@ onBeforeUnmount(() => {
  * 视口明显偏矮（如笔记本 1080×600 左右的窗口）时，
  * 与其把三行图表压成薄片，不如给足高度、让页面自然滚动。
  */
-@media (max-height: 820px) {
-  .ds--full .chart-grid {
-    min-height: 812px;
-    grid-template-rows: minmax(230px, 1fr) minmax(300px, 1fr) minmax(250px, 1fr);
-  }
 
-  /* 高度紧张时只隐去说明小字，标题与图表都保留原有尺寸 */
-  .ds--full .card-sub { display: none; }
-
-  .ds--full .card-head {
-    margin-bottom: 8px;
-    padding-bottom: 6px;
-  }
-}
 
 /* ---------- 大屏：更多指标入口 ---------- */
 .ds-more {
@@ -1468,14 +1488,15 @@ onBeforeUnmount(() => {
 /* ---------- 大屏：更多指标抽屉 ---------- */
 .ds-drawer {
   position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 64px;
+  left: 16px;
+  right: 16px;
+  /* 让出顶部标题+指标带，底部让出「更多指标」按钮，中间整块交给两张图 */
+  top: 96px;
+  bottom: 52px;
   z-index: 40;
   display: flex;
   flex-direction: column;
-  max-height: 62vh;
-  padding: 14px 16px 16px;
+  padding: 16px 18px 16px;
   border-radius: 18px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1526,8 +1547,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 46vh;
-  padding: 14px 16px 10px;
+  height: 100%;
+  padding: 14px 18px 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--bg);
@@ -1555,8 +1576,8 @@ onBeforeUnmount(() => {
 }
 
 @keyframes fsIn {
-  from { opacity: 0; transform: scale(.985); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .ds--loading { cursor: progress; }
