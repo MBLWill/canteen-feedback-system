@@ -1079,13 +1079,27 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .ds {
+  position: relative;
+  isolation: isolate;
   padding: 16px 18px 22px;
   min-height: 100%;
+  background: var(--bg);
+}
+
+/*
+ * 背景光晕放在伪元素上：路由 <transition> 会把组件根元素的 animation 当成过渡动画来等待，
+ * 根元素挂无限动画会导致离开过渡永远结束不了、旧页面残留（其它菜单点开像是没反应）。
+ */
+.ds::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background:
     radial-gradient(1100px 380px at 8% -10%, rgba(255, 122, 26, .10), transparent 62%),
-    radial-gradient(900px 360px at 100% 0%, rgba(59, 130, 246, .09), transparent 60%),
-    var(--bg);
-  background-size: 160% 160%, 150% 150%, auto;
+    radial-gradient(900px 360px at 100% 0%, rgba(59, 130, 246, .09), transparent 60%);
+  background-size: 160% 160%, 150% 150%;
   animation: bgDrift 26s ease-in-out infinite alternate;
 }
 

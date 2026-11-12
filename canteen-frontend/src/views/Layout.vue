@@ -189,7 +189,8 @@
 
       <el-main class="app-main">
         <router-view v-slot="{ Component }">
-          <transition name="page-fade">
+          <!-- 显式给时长：避免页面根元素上的无限动画让离开过渡挂住、旧页面残留在 DOM 里 -->
+          <transition name="page-fade" :duration="{ enter: 140, leave: 100 }">
             <keep-alive>
               <component :is="Component" />
             </keep-alive>
