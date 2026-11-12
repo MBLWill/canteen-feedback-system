@@ -276,7 +276,7 @@ const sortMode = ref('stall') // stall | sales | rating
 const stalls = ref([])
 const stallsLoading = ref(false)
 // 档口行右侧展示的菜品数（后端按评分降序返回）
-const STALL_DISH_LIMIT = 5
+const STALL_DISH_LIMIT = 3
 
 const query = reactive({
   current: 1,
@@ -741,6 +741,7 @@ onMounted(async () => {
 .stall-row {
   display: flex;
   gap: 16px;
+  height: 256px;
   padding: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -757,16 +758,18 @@ onMounted(async () => {
 /* 左：档口窗口 */
 .stall-window {
   display: flex;
-  gap: 13px;
-  width: 272px;
+  flex-direction: column;
+  width: 216px;
   flex-shrink: 0;
   min-width: 0;
   cursor: pointer;
+  overflow: hidden;
+  border-radius: 10px;
 }
 
 .stall-window .stall-cover {
-  width: 132px;
-  height: 104px;
+  width: 100%;
+  height: 134px;
   aspect-ratio: auto;
   border-radius: 10px;
   flex-shrink: 0;
@@ -817,10 +820,11 @@ onMounted(async () => {
 .stall-info {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   flex: 1;
   min-width: 0;
-  padding: 0;
+  padding: 8px 2px 0;
+  overflow: hidden;
 }
 
 .stall-name {
@@ -885,16 +889,19 @@ onMounted(async () => {
   min-width: 0;
   display: flex;
   flex-wrap: nowrap;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: stretch;
+  gap: 12px;
   padding-left: 16px;
   border-left: 1px dashed var(--border);
 }
 
 .mini-dish {
   flex: 1 1 0;
-  min-width: 84px;
-  max-width: 180px;
+  min-width: 0;
+  max-width: 268px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
   border-radius: 10px;
   transition: transform 0.16s ease;
@@ -907,7 +914,8 @@ onMounted(async () => {
 .mini-cover {
   position: relative;
   width: 100%;
-  height: 78px;
+  flex: 1;
+  min-height: 0;
   border-radius: 10px;
   overflow: hidden;
   display: flex;
@@ -1245,22 +1253,23 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-@media (max-width: 1360px) {
+@media (min-width: 1600px) {
   .stall-window {
-    width: 240px;
+    width: 250px;
   }
 
   .stall-window .stall-cover {
-    width: 112px;
-    height: 90px;
+    height: 136px;
+  }
+}
+
+@media (max-width: 1360px) {
+  .stall-window {
+    width: 196px;
   }
 
-  .mini-dish {
-    min-width: 76px;
-  }
-
-  .mini-cover {
-    height: 70px;
+  .stall-window .stall-cover {
+    height: 122px;
   }
 }
 
