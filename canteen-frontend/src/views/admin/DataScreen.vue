@@ -154,11 +154,11 @@
         <div class="card-head">
           <div>
             <span class="card-title">{{ dishTitle }}</span>
-            <span class="card-sub">点击柱子查看菜品详情 · 按累计{{ stallMetric === 'amount' ? '营收' : '销量' }}</span>
+            <span class="card-sub">点击柱子查看菜品详情 · 按累计{{ dishMetric === 'amount' ? '营收' : '销量' }}</span>
           </div>
           <div class="mini-seg">
-            <button :class="{ active: stallMetric === 'quantity' }" @click="stallMetric = 'quantity'">销量</button>
-            <button :class="{ active: stallMetric === 'amount' }" @click="stallMetric = 'amount'">营收</button>
+            <button :class="{ active: dishMetric === 'quantity' }" @click="dishMetric = 'quantity'">销量</button>
+            <button :class="{ active: dishMetric === 'amount' }" @click="dishMetric = 'amount'">营收</button>
           </div>
         </div>
         <div v-if="filteredDishRank.length" class="chart-body">
@@ -299,6 +299,8 @@ const selectedStallName = ref('')
 const selectedCategory = ref('')
 /** 排行指标：销量 / 营收（档口榜与菜品榜共用，保持口径一致） */
 const stallMetric = ref('quantity')
+// 菜品榜口径独立，避免切换档口榜时菜品榜跟着变
+const dishMetric = ref('quantity')
 
 const ranges = [
   { label: '近 7 天', value: 7 },
@@ -573,7 +575,7 @@ const categoryOption = computed(() => {
   const total = list.reduce((s, i) => s + Number(i.quantity || 0), 0)
   // 大屏下卡片更宽，环图靠左、图例竖排在右侧，避免中间一大片空白
   const wide = fullscreen.value
-  const centerX = wide ? '27%' : '50%'
+  const centerX = wide ? '33%' : '50%'
   const centerY = wide ? '50%' : '44%'
   const pctOf = name => {
     const it = list.find(i => (i.category || '其他') === name)
@@ -592,12 +594,13 @@ const categoryOption = computed(() => {
     legend: wide
       ? {
           orient: 'vertical',
-          right: 14,
+          right: 2,
           top: 'middle',
-          itemWidth: 10,
-          itemHeight: 10,
-          itemGap: 13,
-          textStyle: { color: '#5b6472', fontSize: 12 },
+          width: 132,
+          itemWidth: 9,
+          itemHeight: 9,
+          itemGap: 9,
+          textStyle: { color: '#5b6472', fontSize: 11 },
           formatter: name => `${name}   ${pctOf(name)}%`
         }
       : {
@@ -607,7 +610,7 @@ const categoryOption = computed(() => {
     series: [
       {
         type: 'pie',
-        radius: wide ? ['52%', '88%'] : ['46%', '68%'],
+        radius: wide ? ['46%', '94%'] : ['46%', '68%'],
         center: [centerX, centerY],
         avoidLabelOverlap: true,
         itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
@@ -643,7 +646,10 @@ const categoryOption = computed(() => {
 /* ---------- 档口排行 ---------- */
 const stallRankOption = computed(() => {
   // 大屏模式一屏信息更多，榜单收敛到前 8，条形更舒展
-  const top = (data.value.stallRank || []).slice(0, fullscreen.value ? 8 : 10)
+  // 切到营收口径时同步重排，避免条形长度变了但顺序还是销量序
+  const top = [...(data.value.stallRank || [])]
+    .sort((a, b) => Number(b[stallMetric.value] || 0) - Number(a[stallMetric.value] || 0))
+    .slice(0, fullscreen.value ? 8 : 10)
   const list = [...top].reverse()
   const isAmount = stallMetric.value === 'amount'
   const max = Math.max(1, ...list.map(i => Number(i[stallMetric.value] || 0)))
@@ -714,20 +720,22 @@ const filteredDishRank = computed(() => {
   let list = data.value.dishRank || []
   if (selectedStallId.value) list = list.filter(i => i.stallId === selectedStallId.value)
   if (selectedCategory.value) list = list.filter(i => (i.category || '其他') === selectedCategory.value)
-  const filtered = !!(selectedStallId.value || selectedCategory.value)
-  return filtered ? list : list.slice(0, fullscreen.value ? 8 : 10)
+  return [...list].sort((a, b) => Number(b[dishMetric.value] || 0) - Number(a[dishMetric.value] || 0))
 })
 
 const dishTitle = computed(() => {
   if (selectedStallName.value) return `${selectedStallName.value} · 热销菜品`
   if (selectedCategory.value) return `${selectedCategory.value} · 热销菜品`
-  return `菜品销量 TOP${fullscreen.value ? 8 : 10}`
+  return `菜品${dishMetric.value === 'amount' ? '营收' : '销量'} TOP${fullscreen.value ? 8 : 10}`
 })
 
 const dishRankOption = computed(() => {
-  const list = [...filteredDishRank.value].reverse()
-  const isAmount = stallMetric.value === 'amount'
-  const max = Math.max(1, ...list.map(i => Number(i[stallMetric.value] || 0)))
+  const all = filteredDishRank.value
+  const filtered = !!(selectedStallId.value || selectedCategory.value)
+  const limited = filtered ? all : all.slice(0, fullscreen.value ? 8 : 10)
+  const list = [...limited].reverse()
+  const isAmount = dishMetric.value === 'amount'
+  const max = Math.max(1, ...list.map(i => Number(i[dishMetric.value] || 0)))
   return {
     animationDuration: 800,
     animationDurationUpdate: 480,
@@ -765,7 +773,7 @@ const dishRankOption = computed(() => {
         barMaxWidth: 20,
         animationDelay: idx => idx * 40,
         data: list.map((i, idx) => ({
-          value: i[stallMetric.value],
+          value: i[dishMetric.value],
           dishId: i.dishId,
           stallId: i.stallId,
           itemStyle: {
@@ -1248,15 +1256,15 @@ onBeforeUnmount(() => {
   z-index: 3000;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   overflow: hidden;
-  padding: 12px 16px 12px;
+  padding: 10px 16px 10px;
   animation: fsIn .3s cubic-bezier(.22, .8, .3, 1) both;
 }
 
 /* 顶部收成一行标题，减少信息层级 */
 .ds--full .ds-head {
-  padding: 10px 20px;
+  padding: 8px 18px;
   margin-bottom: 0;
 }
 
@@ -1280,7 +1288,7 @@ onBeforeUnmount(() => {
 .ds--full .kpi-grid {
   grid-template-columns: repeat(6, 1fr);
   gap: 0;
-  padding: 9px 6px;
+  padding: 7px 6px;
   margin-bottom: 0;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1318,9 +1326,9 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   grid-template-columns: repeat(12, 1fr);
-  /* 趋势为主视觉，第三行要放下 8 条横条，故给得最高 */
-  grid-template-rows: 1.08fr 1.28fr 1fr;
-  gap: 16px;
+  /* 趋势为主视觉；第三行必须放下 8 条横条；第四行给品类环图留高度 */
+  grid-template-rows: 1.02fr 1.25fr 1.07fr;
+  gap: 14px;
 }
 
 /* 第 2 行：销量营收趋势通栏（视觉 C 位） */
@@ -1329,8 +1337,8 @@ onBeforeUnmount(() => {
 .ds--full .card--stall { grid-area: 2 / 1 / 3 / 7; }
 .ds--full .card--dish { grid-area: 2 / 7 / 3 / 13; }
 /* 第 4 行：档口经营象限 | 品类占比 */
-.ds--full .card--quad { grid-area: 3 / 1 / 4 / 7; }
-.ds--full .card--category { grid-area: 3 / 7 / 4 / 13; }
+.ds--full .card--quad { grid-area: 3 / 1 / 4 / 10; }
+.ds--full .card--category { grid-area: 3 / 10 / 4 / 13; }
 
 .ds--full .card {
   display: flex;
@@ -1399,7 +1407,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  height: 30px;
+  height: 28px;
   padding: 0 16px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -1988,7 +1996,7 @@ onBeforeUnmount(() => {
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 12px;
+  gap: 16px;
 }
 
 .card {
