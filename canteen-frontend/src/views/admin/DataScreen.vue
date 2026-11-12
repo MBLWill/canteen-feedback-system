@@ -520,6 +520,14 @@ const trendOption = computed(() => {
 const categoryOption = computed(() => {
   const list = data.value.categorySales || []
   const total = list.reduce((s, i) => s + Number(i.quantity || 0), 0)
+  // 大屏下卡片更宽，环图靠左、图例竖排在右侧，避免中间一大片空白
+  const wide = fullscreen.value
+  const centerX = wide ? '30%' : '50%'
+  const centerY = wide ? '52%' : '44%'
+  const pctOf = name => {
+    const it = list.find(i => (i.category || '其他') === name)
+    return total ? ((Number(it?.quantity || 0) / total) * 100).toFixed(1) : '0'
+  }
   return {
     animationDuration: 900,
     animationEasing: 'cubicOut',
@@ -530,19 +538,30 @@ const categoryOption = computed(() => {
         return `<b>${p.name}</b><br/>销量：${Number(p.value).toLocaleString()} 份<br/>占比：${pct}%<br/>营收：¥${Number(p.data.amount || 0).toLocaleString()}`
       }
     },
-    legend: {
-      bottom: 0, itemWidth: 9, itemHeight: 9, itemGap: 12,
-      textStyle: { color: '#5b6472', fontSize: 11 }
-    },
+    legend: wide
+      ? {
+          orient: 'vertical',
+          right: 14,
+          top: 'middle',
+          itemWidth: 10,
+          itemHeight: 10,
+          itemGap: 13,
+          textStyle: { color: '#5b6472', fontSize: 12 },
+          formatter: name => `${name}   ${pctOf(name)}%`
+        }
+      : {
+          bottom: 0, itemWidth: 9, itemHeight: 9, itemGap: 12,
+          textStyle: { color: '#5b6472', fontSize: 11 }
+        },
     series: [
       {
         type: 'pie',
-        radius: ['46%', '68%'],
-        center: ['50%', '44%'],
+        radius: wide ? ['44%', '72%'] : ['46%', '68%'],
+        center: [centerX, centerY],
         avoidLabelOverlap: true,
         itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
-        label: { show: true, formatter: '{d}%', fontSize: 11, color: '#5b6472' },
-        labelLine: { length: 8, length2: 8, lineStyle: { color: '#d5dbe3' } },
+        label: { show: !wide, formatter: '{d}%', fontSize: 11, color: '#5b6472' },
+        labelLine: { show: !wide, length: 8, length2: 8, lineStyle: { color: '#d5dbe3' } },
         emphasis: {
           scaleSize: 8,
           label: { show: true, fontSize: 13, fontWeight: 'bold', formatter: '{b}\n{d}%' }
@@ -558,12 +577,12 @@ const categoryOption = computed(() => {
       }
     ],
     graphic: [
-      { type: 'text', left: 'center', top: '38%', style: { text: '总销量', fill: '#98a1ad', fontSize: 11, textAlign: 'center' } },
+      { type: 'text', left: centerX, top: wide ? '45%' : '38%', style: { text: '总销量', fill: '#98a1ad', fontSize: 11, textAlign: 'center' } },
       {
-        type: 'text', left: 'center', top: '45%',
+        type: 'text', left: centerX, top: wide ? '51%' : '45%',
         style: {
           text: total >= 10000 ? (total / 10000).toFixed(1) + '万' : String(total),
-          fill: '#1a1d24', fontSize: 20, fontWeight: 'bold', textAlign: 'center'
+          fill: '#1a1d24', fontSize: wide ? 22 : 20, fontWeight: 'bold', textAlign: 'center'
         }
       }
     ]
@@ -572,7 +591,9 @@ const categoryOption = computed(() => {
 
 /* ---------- 档口排行 ---------- */
 const stallRankOption = computed(() => {
-  const list = [...(data.value.stallRank || [])].reverse()
+  // 大屏模式一屏信息更多，榜单收敛到前 8，条形更舒展
+  const top = (data.value.stallRank || []).slice(0, fullscreen.value ? 8 : 10)
+  const list = [...top].reverse()
   const isAmount = stallMetric.value === 'amount'
   const max = Math.max(1, ...list.map(i => Number(i[stallMetric.value] || 0)))
   return {
@@ -643,13 +664,13 @@ const filteredDishRank = computed(() => {
   if (selectedStallId.value) list = list.filter(i => i.stallId === selectedStallId.value)
   if (selectedCategory.value) list = list.filter(i => (i.category || '其他') === selectedCategory.value)
   const filtered = !!(selectedStallId.value || selectedCategory.value)
-  return filtered ? list : list.slice(0, 10)
+  return filtered ? list : list.slice(0, fullscreen.value ? 8 : 10)
 })
 
 const dishTitle = computed(() => {
   if (selectedStallName.value) return `${selectedStallName.value} · 热销菜品`
   if (selectedCategory.value) return `${selectedCategory.value} · 热销菜品`
-  return '菜品销量 TOP10'
+  return `菜品销量 TOP${fullscreen.value ? 8 : 10}`
 })
 
 const dishRankOption = computed(() => {
@@ -862,8 +883,11 @@ const quadrantOption = computed(() => {
   const avgQty = pts.length ? pts.reduce((s, i) => s + i.quantity, 0) / pts.length : 0
   const avgRate = pts.length ? pts.reduce((s, i) => s + i.goodRate, 0) / pts.length : 0
   const rawMaxQty = Math.max(1, ...pts.map(i => i.quantity))
-  const qtyStep = rawMaxQty > 2000 ? 500 : 200
-  const maxQty = Math.ceil((rawMaxQty * 1.15) / qtyStep) * qtyStep
+  const rawMinQty = Math.min(...pts.map(i => i.quantity))
+  const qtyStep = rawMaxQty > 2000 ? 250 : 100
+  // 两端留白收紧，点位更铺开（象限判断依赖均值线，不必从 0 起）
+  const minQty = Math.max(0, Math.floor((rawMinQty * 0.78) / qtyStep) * qtyStep)
+  const maxQty = Math.ceil((rawMaxQty * 1.06) / qtyStep) * qtyStep
   const maxAmount = Math.max(1, ...pts.map(i => i.amount))
   const colorOf = p => {
     if (p.quantity >= avgQty && p.goodRate >= avgRate) return '#22c55e'
@@ -910,6 +934,7 @@ const quadrantOption = computed(() => {
       nameLocation: 'middle',
       nameGap: 26,
       nameTextStyle: { color: '#98a1ad', fontSize: 11 },
+      min: minQty,
       max: maxQty,
       splitLine: { lineStyle: { color: '#f1f4f8' } },
       axisLabel: { color: '#98a1ad', fontSize: 11, formatter: v => (v >= 10000 ? (v / 10000).toFixed(1) + 'w' : v) }
@@ -958,14 +983,14 @@ const quadrantOption = computed(() => {
           show: true,
           position: 'right',
           distance: 10,
-          formatter: p => p.data.raw.stallName,
+          formatter: p => (!fullscreen.value || p.dataIndex < 5) ? p.data.raw.stallName : '',
           color: '#5b6472',
           fontSize: fullscreen.value ? 10 : 11,
           textBorderColor: 'rgba(255,255,255,0.92)',
           textBorderWidth: 2
         },
         // 点位靠近时标签自动上下错开，避免文字叠在一起
-        labelLayout: { moveOverlap: 'shiftY' },
+        labelLayout: { moveOverlap: 'shiftY', hideOverlap: fullscreen.value },
         emphasis: {
           scale: 1.15,
           itemStyle: { opacity: 1, borderWidth: 1.6, shadowBlur: 18 }
@@ -981,10 +1006,10 @@ const quadrantOption = computed(() => {
           silent: true,
           z: 0,
           data: [
-            area(avgQty, maxQty, avgRate, 100, 'rgba(34,197,94,0.055)', '量高口碑好', 'insideTopRight'),
-            area(0, avgQty, avgRate, 100, 'rgba(59,130,246,0.045)', '口碑好', 'insideTopLeft'),
-            area(avgQty, maxQty, 0, avgRate, 'rgba(245,158,11,0.05)', '量高待提升', 'insideBottomRight'),
-            area(0, avgQty, 0, avgRate, 'rgba(148,163,184,0.055)', '待改进', 'insideBottomLeft')
+            area(avgQty, maxQty, avgRate, 100, 'rgba(34,197,94,0.055)', (fullscreen.value ? '' : '量高口碑好'), 'insideTopRight'),
+            area(0, avgQty, avgRate, 100, 'rgba(59,130,246,0.045)', (fullscreen.value ? '' : '口碑好'), 'insideTopLeft'),
+            area(avgQty, maxQty, 0, avgRate, 'rgba(245,158,11,0.05)', (fullscreen.value ? '' : '量高待提升'), 'insideBottomRight'),
+            area(0, avgQty, 0, avgRate, 'rgba(148,163,184,0.055)', (fullscreen.value ? '' : '待改进'), 'insideBottomLeft')
           ]
         }
       }
@@ -1166,68 +1191,124 @@ onBeforeUnmount(() => {
   z-index: 3000;
   display: flex;
   flex-direction: column;
+  gap: 14px;
   overflow: hidden;
-  padding: 14px 18px;
+  padding: 14px 18px 16px;
   animation: fsIn .3s cubic-bezier(.22, .8, .3, 1) both;
 }
 
-/* 大屏下压缩顶部信息，把高度让给图表 */
+/* 顶部收成一行标题，减少信息层级 */
 .ds--full .ds-head {
-  padding: 11px 18px;
-  margin-bottom: 10px;
+  padding: 12px 20px;
+  margin-bottom: 0;
 }
 
-.ds--full .ds-head h1 { font-size: 20px; }
-.ds--full .head-badge { margin-bottom: 4px; padding: 1px 8px; }
-.ds--full .head-sub { margin-top: 4px; font-size: 11px; }
-.ds--full .clock-time { font-size: 18px; }
+.ds--full .head-left {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 
-/* 大屏下指标卡只留核心数字 */
+.ds--full .head-badge { display: none; }
+.ds--full .ds-head h1 { font-size: 19px; letter-spacing: .4px; }
+.ds--full .head-sub { margin: 0; font-size: 11px; color: rgba(255, 255, 255, .6); }
+.ds--full .head-sub b { color: #ffd7b0; }
+.ds--full .clock { padding-right: 12px; }
+.ds--full .clock-time { font-size: 17px; }
+.ds--full .clock-date { font-size: 10px; }
+.ds--full .range-btn { padding: 6px 12px; }
+
+/* 六项指标合并成一条，视觉上从 6 张卡变成 1 个模块 */
 .ds--full .kpi-grid {
-  gap: 10px;
-  margin-bottom: 10px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  padding: 12px 6px;
+  margin-bottom: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-xs);
 }
 
-.ds--full .kpi { padding: 8px 12px 7px; }
-.ds--full .kpi-top { margin-bottom: 3px; min-height: 14px; }
-.ds--full .kpi-icon { font-size: 14px; }
-.ds--full .kpi-value { font-size: 19px; }
-.ds--full .kpi-label { margin-top: 2px; font-size: 11px; }
+.ds--full .kpi {
+  padding: 0 20px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  animation: none;
+}
+
+.ds--full .kpi + .kpi { border-left: 1px solid var(--border); }
+.ds--full .kpi::before,
+.ds--full .kpi-glow { display: none; }
+.ds--full .kpi:hover { transform: none; box-shadow: none; }
+.ds--full .kpi-top { justify-content: flex-start; gap: 8px; margin-bottom: 4px; min-height: 16px; }
+.ds--full .kpi-icon { font-size: 15px; }
+.ds--full .kpi-tag { display: none; }
+.ds--full .kpi-value { font-size: 23px; }
+.ds--full .kpi-label { margin-top: 3px; font-size: 11.5px; }
 .ds--full .kpi-extra { display: none; }
 
 /* 洞察条与页脚在大屏下让位给图表 */
 .ds--full .insight-grid,
 .ds--full .ds-foot { display: none; }
 
-/* 图表区：三行铺满剩余高度 */
+/* 图表区：三行铺满，留白加大 */
 .ds--full .chart-grid {
   flex: 1;
   min-height: 0;
-  grid-template-rows: 1fr 1fr 1.16fr;
-  gap: 10px;
+  grid-template-rows: 1fr 1fr 1.18fr;
+  gap: 14px;
 }
 
+/* 大屏下图表卡去掉描边，改用柔和投影，画面更干净 */
 .ds--full .card {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 9px 12px 6px;
+  padding: 14px 16px 10px;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 10px 26px rgba(16, 24, 40, .06);
   animation: none;
 }
 
-.ds--full .card-head { margin-bottom: 2px; }
+.ds--full .card:hover {
+  transform: none;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 10px 26px rgba(16, 24, 40, .06);
+}
+
+.ds--full .card-head { margin-bottom: 4px; }
 .ds--full .card-sub { display: none; }
-.ds--full .card-title { font-size: 13px; }
+
+.ds--full .card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+
+.ds--full .card-title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffb066, #ff7a1a);
+}
+
 .ds--full .chart-body { flex: 1; min-height: 0; }
 
-/* 重新排布：趋势 + 品类 + 评分 / 档口 + 菜品 + 口碑 / 象限 */
-.ds--full .chart-grid > .card:nth-child(1) { grid-area: 1 / 1 / 2 / 7; }
-.ds--full .chart-grid > .card:nth-child(2) { grid-area: 1 / 7 / 2 / 10; }
-.ds--full .chart-grid > .card:nth-child(6) { grid-area: 1 / 10 / 2 / 13; }
+/* 重新排布：趋势+品类 / 档口+菜品+评分 / 象限+口碑 */
+.ds--full .chart-grid > .card:nth-child(1) { grid-area: 1 / 1 / 2 / 8; }
+.ds--full .chart-grid > .card:nth-child(2) { grid-area: 1 / 8 / 2 / 13; }
 .ds--full .chart-grid > .card:nth-child(3) { grid-area: 2 / 1 / 3 / 5; }
 .ds--full .chart-grid > .card:nth-child(4) { grid-area: 2 / 5 / 3 / 9; }
-.ds--full .chart-grid > .card:nth-child(5) { grid-area: 2 / 9 / 3 / 13; }
-.ds--full .chart-grid > .card:nth-child(7) { grid-area: 3 / 1 / 4 / 13; }
+.ds--full .chart-grid > .card:nth-child(6) { grid-area: 2 / 9 / 3 / 13; }
+.ds--full .chart-grid > .card:nth-child(7) { grid-area: 3 / 1 / 4 / 8; }
+.ds--full .chart-grid > .card:nth-child(5) { grid-area: 3 / 8 / 4 / 13; }
 
 @keyframes fsIn {
   from { opacity: 0; transform: scale(.985); }
