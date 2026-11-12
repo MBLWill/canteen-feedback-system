@@ -788,8 +788,8 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  /* 页面下限：至少撑满 3 行档口，最后一页条目少时分页器不会突然上跳 */
-  min-height: 794px;
+  /* 高度跟随内容：分页器紧贴最后一行档口，不额外撑高页面 */
+  min-height: 120px;
 }
 
 .stall-pager {
