@@ -433,6 +433,7 @@ POST PUT DELETE /api/faqs     知识库增删改（管理员）
 | `npm install` 很慢或失败 | 换国内源：`npm config set registry https://registry.npmmirror.com` |
 | 端口被占用 | 改 `application.yml` 的 `server.port`，同步改 `vite.config.js` 的 proxy target |
 | 菜品图不显示 | 确认 `canteen-frontend/public/dishes/` 下图片存在；缺失时会自动回退为分类渐变 + 首字 |
+| 学生头像 / 档口门面图不显示 | 早期导出的数据里 `sys_user.avatar`、`canteen_stall.cover_image` 是空的（图片路径没有随数据一起提交）。后端启动时会自动执行 `db/migration/V10__seed_images.sql` 回填，重启一次后端即可；也可手动执行该 SQL |
 | 数据表缺少客服表 / 预约表 | 重跑 `db/full-setup.sql` 一键对齐（会重置为初始数据）；不想清数据就补跑对应的 `db/patch-*.sql` |
 | 接口返回 429 | 智能客服限流 30 次/分钟，稍等再试 |
 
