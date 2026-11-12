@@ -164,7 +164,8 @@ async function handleLogin() {
       // 管理员默认落地数据大屏
       router.push('/admin/dashboard')
     } else {
-      router.push('/dashboard')
+      // 学生默认落地美食探索
+      router.push('/dishes')
     }
   } finally {
     loading.value = false

@@ -13,9 +13,12 @@ function getRole() {
   }
 }
 
-/** 首页按角色落地：管理员直接进数据大屏，其余进数据看板 */
+/** 首页按角色落地：管理员进数据大屏，商家进订单处理，学生进美食探索 */
 function homePath() {
-  return getRole() === 'ADMIN' ? '/admin/dashboard' : '/dashboard'
+  const role = getRole()
+  if (role === 'ADMIN') return '/admin/dashboard'
+  if (role === 'MERCHANT') return '/merchant/todos'
+  return '/dishes'
 }
 
 const routes = [
@@ -30,7 +33,7 @@ const routes = [
     component: () => import('@/views/Layout.vue'),
     redirect: () => homePath(),
     children: [
-      { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/Statistics.vue'), meta: { title: '数据看板', icon: 'DataLine' } },
+      { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/Statistics.vue'), meta: { title: '数据看板', icon: 'DataLine', staffOnly: true } },
       { path: 'dishes', name: 'DishList', component: () => import('@/views/DishList.vue'), meta: { title: '美食探索', icon: 'Shop' } },
       { path: 'stalls/south', redirect: '/dishes?area=south&floor=1', meta: { hidden: true } },
       { path: 'stalls/north', redirect: '/dishes?area=north&floor=1', meta: { hidden: true } },
@@ -81,10 +84,14 @@ router.beforeEach((to, from, next) => {
   // 角色校验：防止学生/商家/管理员跨角色 URL 直访（侧边栏只是隐藏菜单，不是权限隔离）
   const role = getRole()
   if (to.meta.admin && role !== 'ADMIN') {
-    return next({ path: '/dashboard' })
+    return next({ path: homePath() })
   }
   if (to.meta.merchant && role !== 'MERCHANT') {
-    return next({ path: '/dashboard' })
+    return next({ path: homePath() })
+  }
+  // 学生端不提供数据看板，直访也回美食探索
+  if (to.path === '/dashboard' && role === 'STUDENT') {
+    return next({ path: '/dishes' })
   }
   next()
 })
