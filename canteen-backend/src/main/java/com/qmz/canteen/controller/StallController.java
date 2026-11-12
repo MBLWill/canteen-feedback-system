@@ -35,8 +35,9 @@ public class StallController {
     @GetMapping
     public Result<List<StallVO>> list(@RequestParam(required = false) @Size(max = 50, message = "关键字过长") String keyword,
                                       @RequestParam(required = false) String area,
-                                      @RequestParam(required = false) Integer floor) {
-        return Result.success(stallService.listWithStats(keyword, area, floor));
+                                      @RequestParam(required = false) Integer floor,
+                                      @RequestParam(required = false) Integer dishLimit) {
+        return Result.success(stallService.listWithStats(keyword, area, floor, dishLimit));
     }
 
     @GetMapping("/{id}")

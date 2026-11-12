@@ -53,17 +53,14 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="comprehensive" :class="{ 'is-active': sortMode === 'comprehensive' }">
-                综合排序
+              <el-dropdown-item command="stall" :class="{ 'is-active': sortMode === 'stall' }">
+                档口排序
               </el-dropdown-item>
               <el-dropdown-item command="sales" :class="{ 'is-active': sortMode === 'sales' }">
                 销量排序
               </el-dropdown-item>
               <el-dropdown-item command="rating" :class="{ 'is-active': sortMode === 'rating' }">
                 好评优先
-              </el-dropdown-item>
-              <el-dropdown-item command="stall" :class="{ 'is-active': sortMode === 'stall' }">
-                档口排序
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -100,53 +97,64 @@
       <!-- 内容行：菜品/档口(左) + 今日最佳/人气榜(右) -->
       <div class="plaza-content">
         <div class="plaza-main">
-          <!-- 档口排序模式：档口列表 -->
+          <!-- 档口排序模式：一行一个档口，左侧档口窗口 + 右侧该档口评分较高的菜品 -->
           <template v-if="isStallMode">
-            <div class="stall-sort-row">
-                <span class="stall-sort-label">档口排序</span>
-                <el-dropdown trigger="click" @command="onStallSortCommand">
-                  <div class="canteen-select">
-                    <span class="canteen-select-text">{{ stallSortLabel }}</span>
-                    <el-icon class="canteen-select-arrow"><ArrowDown /></el-icon>
-                  </div>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="comprehensive" :class="{ 'is-active': stallSort === 'comprehensive' }">综合排序</el-dropdown-item>
-                      <el-dropdown-item command="rating" :class="{ 'is-active': stallSort === 'rating' }">好评排序</el-dropdown-item>
-                      <el-dropdown-item command="sales" :class="{ 'is-active': stallSort === 'sales' }">销量排序</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
+            <div class="stall-tip">
+              <span class="stall-tip-main">按购买人数排序</span>
+              <span class="stall-tip-sub">共 {{ sortedStalls.length }} 个档口 · 右侧为该档口评分较高的菜品</span>
+            </div>
 
-              <div v-loading="stallsLoading" class="stall-grid">
-                <div
-                  v-for="st in sortedStalls"
-                  :key="st.id"
-                  class="stall-card"
-                  @click="selectStall(st)"
-                >
-                <div class="stall-cover" :style="{ background: coverGradient(st.category) }">
-                  <img v-if="st.coverImage" :src="st.coverImage" :alt="st.name" loading="lazy" @error="$event.target.style.display='none'">
-                  <span v-else class="stall-initial">{{ (st.name || st.windowNo || '档').slice(0, 1) }}</span>
-                  <span class="stall-window-badge">{{ st.windowNo }}</span>
-                </div>
-                <div class="stall-info">
-                  <div class="stall-name" :title="st.name">{{ st.name }}</div>
-                  <div class="stall-meta">
-                    <span class="stall-zone">{{ stallZoneText(st) }}</span>
-                    <span v-if="st.avgRating" class="stall-rating">
-                      <el-icon><StarFilled /></el-icon>
-                      {{ Number(st.avgRating).toFixed(1) }}
-                    </span>
+            <div v-loading="stallsLoading" class="stall-list">
+              <div v-for="st in sortedStalls" :key="st.id" class="stall-row">
+                <!-- 左：档口窗口信息 -->
+                <div class="stall-window" @click="selectStall(st)">
+                  <div class="stall-cover" :style="{ background: coverGradient(st.category) }">
+                    <img v-if="st.coverImage" :src="st.coverImage" :alt="st.name" loading="lazy" @error="$event.target.style.display='none'">
+                    <span v-else class="stall-initial">{{ (st.name || st.windowNo || '档').slice(0, 1) }}</span>
+                    <span class="stall-window-badge">{{ st.windowNo }} 号窗口</span>
                   </div>
-                  <div class="stall-footer">
-                    <span>{{ st.dishCount || 0 }} 道菜品</span>
-                    <span class="stall-sales">月售 {{ st.salesCount || 0 }}</span>
+                  <div class="stall-info">
+                    <div class="stall-name" :title="st.name">{{ st.name }}</div>
+                    <div class="stall-meta">
+                      <span class="stall-zone">{{ stallZoneText(st) }}</span>
+                      <span v-if="st.avgRating" class="stall-rating">
+                        <el-icon><StarFilled /></el-icon>
+                        {{ Number(st.avgRating).toFixed(1) }}
+                      </span>
+                    </div>
+                    <div class="stall-desc" :title="st.description">{{ st.description || '暂无档口简介' }}</div>
+                    <div class="stall-footer">
+                      <span>{{ st.dishCount || 0 }} 道菜品</span>
+                      <span class="stall-sales">月售 {{ st.salesCount || 0 }}</span>
+                    </div>
                   </div>
                 </div>
+
+                <!-- 右：该档口评分较高的菜品 -->
+                <div class="stall-dishes">
+                  <div
+                    v-for="d in (st.topDishes || [])"
+                    :key="d.id"
+                    class="mini-dish"
+                    @click="goDishDetail(d)"
+                  >
+                    <div class="mini-cover" :style="{ background: coverGradient(d.category) }">
+                      <img v-if="d.image" :src="d.image" :alt="d.name" loading="lazy" @error="$event.target.style.display='none'">
+                      <span v-else class="mini-initial">{{ (d.name || '菜').slice(0, 1) }}</span>
+                      <span v-if="d.avgRating" class="mini-rating">
+                        <el-icon><StarFilled /></el-icon>
+                        {{ Number(d.avgRating).toFixed(1) }}
+                      </span>
+                    </div>
+                    <div class="mini-name" :title="d.name">{{ d.name }}</div>
+                    <div class="mini-foot">
+                      <span class="mini-price">¥{{ priceText(d.price) }}</span>
+                    </div>
+                  </div>
+                  <div v-if="!(st.topDishes && st.topDishes.length)" class="stall-no-dish">该档口暂无在售菜品</div>
                 </div>
               </div>
+            </div>
             <el-empty v-if="!stallsLoading && !stalls.length" description="暂无档口" />
           </template>
 
@@ -263,12 +271,12 @@ const rankPeriod = ref('today')
 // 今日最佳 + AI 小助手共用的固定榜单（不随人气榜的今日/本周切换而变化）
 const bestList = ref([])
 
-// 档口排序相关
-const sortMode = ref('comprehensive') // comprehensive | sales | rating | stall
+// 排序：默认进入即「档口排序」，其余为菜品维度的排序
+const sortMode = ref('stall') // stall | sales | rating
 const stalls = ref([])
 const stallsLoading = ref(false)
-// 档口排序模式下，对档口本身的排序：综合(默认，按区域楼层窗口号) / 好评 / 销量
-const stallSort = ref('comprehensive')
+// 档口行右侧展示的菜品数（后端按评分降序返回）
+const STALL_DISH_LIMIT = 5
 
 const query = reactive({
   current: 1,
@@ -278,18 +286,17 @@ const query = reactive({
   area: normalizeArea(route.query.area),
   floor: normalizeFloor(route.query.floor, route.query.area),
   category: undefined,
-  sortBy: 'comprehensive'
+  sortBy: 'sales'
 })
 
 const isStallMode = computed(() => sortMode.value === 'stall')
 
 const sortLabels = {
-  comprehensive: '综合排序',
   sales: '销量排序',
   rating: '好评优先',
   stall: '档口排序'
 }
-const sortLabel = computed(() => sortLabels[sortMode.value] || '综合排序')
+const sortLabel = computed(() => sortLabels[sortMode.value] || '档口排序')
 
 const canteenText = computed(() => {
   if (!query.area) return '全部食堂'
@@ -306,31 +313,21 @@ function stallZoneText(st) {
   return `南区${st.floor || 1}楼`
 }
 
-const stallSortLabel = computed(() => ({
-  comprehensive: '综合排序',
-  rating: '好评排序',
-  sales: '销量排序'
-}[stallSort.value] || '综合排序'))
-
-// 档口排序：综合保持后端顺序（南区1楼→南区2楼→北区，窗口号升序）；好评/销量按对应字段降序
+// 档口排序：按购买人数（累计销量）从多到少，销量相同再看评分、窗口号
 const sortedStalls = computed(() => {
-  const list = [...stalls.value]
-  if (stallSort.value === 'rating') {
-    list.sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0))
-  } else if (stallSort.value === 'sales') {
-    list.sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
-  }
-  return list
+  return [...stalls.value].sort((a, b) => {
+    const bySales = (b.salesCount || 0) - (a.salesCount || 0)
+    if (bySales !== 0) return bySales
+    const byRating = (b.avgRating || 0) - (a.avgRating || 0)
+    if (byRating !== 0) return byRating
+    return String(a.windowNo || '').localeCompare(String(b.windowNo || ''))
+  })
 })
-
-function onStallSortCommand(cmd) {
-  stallSort.value = cmd
-}
 
 async function loadData() {
   loading.value = true
   try {
-    query.sortBy = sortMode.value === 'stall' ? 'rating' : sortMode.value
+    query.sortBy = sortMode.value === 'stall' ? 'sales' : sortMode.value
     const res = await pageDishes(query)
     records.value = res.data.records
     total.value = res.data.total
@@ -344,7 +341,9 @@ async function loadStalls() {
   try {
     const res = await listStalls({
       area: query.area || undefined,
-      floor: query.floor || undefined
+      floor: query.floor || undefined,
+      // 让后端一并返回每个档口评分较高的菜品，省掉 N 次请求
+      dishLimit: STALL_DISH_LIMIT
     })
     stalls.value = res.data || []
   } catch {
@@ -417,11 +416,17 @@ function applyArea(area, floor) {
 
 function setCategory(category) {
   if (sortMode.value === 'stall') {
-    sortMode.value = 'comprehensive'
+    sortMode.value = 'sales'
   }
   query.category = category
   query.current = 1
   loadData()
+}
+
+/** 档口行右侧的菜品卡：直接进菜品详情 */
+function goDishDetail(dish) {
+  if (!dish || !dish.id) return
+  router.push(`/dishes/${dish.id}`)
 }
 
 function goDish(item) {
@@ -453,15 +458,17 @@ function normalizeFloor(floorValue, area) {
 
 watch(
   () => route.query.stallId,
-  async value => {
-    // 从外部链接（卡片「看这个档口的菜」/详情页返回）带 stallId 进来时，
-    // 退出档口排序模式，让 loadData 尊重 URL 的 stallId 筛选
-    if (value) {
-      sortMode.value = 'comprehensive'
-    }
+  value => {
     query.stallId = value ? Number(value) : undefined
     query.current = 1
-    loadData()
+    if (value) {
+      // 从外部链接（卡片「看这个档口的菜」/详情页返回）带 stallId 进来时，
+      // 切到菜品模式，让列表展示该档口的菜品
+      sortMode.value = 'sales'
+      loadData()
+    } else if (!isStallMode.value) {
+      loadData()
+    }
   },
   { immediate: true }
 )
@@ -483,7 +490,12 @@ watch(
 onMounted(async () => {
   const [catRes] = await Promise.all([listCategories(), loadRanking(), loadBestList()])
   categories.value = catRes.data
-  loadData()
+  // 默认档口排序：加载档口列表（含各档口热评菜品）；其余排序模式才加载菜品
+  if (isStallMode.value) {
+    loadStalls()
+  } else if (!records.value.length) {
+    loadData()
+  }
 })
 </script>
 
@@ -688,47 +700,80 @@ onMounted(async () => {
   margin-top: 20px;
 }
 
-/* 档口排序：排序下拉条 */
-.stall-sort-row {
+/* ===== 档口排序：一行一个档口 ===== */
+.stall-tip {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
-.stall-sort-label {
-  font-size: 14px;
-  font-weight: 600;
+.stall-tip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 800;
   color: var(--text-1);
-  flex-shrink: 0;
 }
 
-/* 档口卡片网格 */
-.stall-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+.stall-tip-main::before {
+  content: '';
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ff9a3d, var(--brand));
+}
+
+.stall-tip-sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.stall-list {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   min-height: 120px;
 }
 
-.stall-card {
+.stall-row {
+  display: flex;
+  gap: 16px;
+  padding: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.stall-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md, 0 8px 22px rgba(0, 0, 0, 0.1));
+.stall-row:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm, 0 8px 22px rgba(0, 0, 0, 0.08));
+}
+
+/* 左：档口窗口 */
+.stall-window {
+  display: flex;
+  gap: 13px;
+  width: 272px;
+  flex-shrink: 0;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.stall-window .stall-cover {
+  width: 132px;
+  height: 104px;
+  aspect-ratio: auto;
+  border-radius: 10px;
+  flex-shrink: 0;
 }
 
 .stall-cover {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -744,7 +789,7 @@ onMounted(async () => {
 }
 
 .stall-initial {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
   color: #fff;
   text-shadow: 0 3px 10px rgba(180, 70, 0, 0.35);
@@ -754,26 +799,32 @@ onMounted(async () => {
 
 .stall-window-badge {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  left: 6px;
+  bottom: 6px;
   z-index: 2;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 10px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 9px;
   background: rgba(255, 122, 26, 0.92);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 20px;
+  line-height: 18px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  white-space: nowrap;
 }
 
 .stall-info {
-  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
 }
 
 .stall-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-1);
   white-space: nowrap;
@@ -786,7 +837,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 5px;
+  margin-top: 4px;
   font-size: 12px;
   color: var(--text-3);
 }
@@ -804,11 +855,21 @@ onMounted(async () => {
   font-weight: 700;
 }
 
+.stall-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .stall-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 6px;
   font-size: 12px;
   color: var(--text-3);
 }
@@ -816,6 +877,113 @@ onMounted(async () => {
 .stall-sales {
   color: var(--brand);
   font-weight: 600;
+}
+
+/* 右：该档口评分较高的菜品 */
+.stall-dishes {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 10px;
+  padding-left: 16px;
+  border-left: 1px dashed var(--border);
+}
+
+.mini-dish {
+  flex: 1 1 0;
+  min-width: 84px;
+  max-width: 180px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: transform 0.16s ease;
+}
+
+.mini-dish:hover {
+  transform: translateY(-2px);
+}
+
+.mini-cover {
+  position: relative;
+  width: 100%;
+  height: 78px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  transition: transform 0.25s ease;
+}
+
+.mini-dish:hover .mini-cover img {
+  transform: scale(1.06);
+}
+
+.mini-initial {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 3px 10px rgba(180, 70, 0, 0.35);
+}
+
+.mini-rating {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 17px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mini-name {
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.mini-price {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--brand);
+  line-height: 1.2;
+}
+
+.stall-no-dish {
+  flex: 1;
+  padding: 14px 0;
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 /* 右侧栏 */
@@ -1075,6 +1243,44 @@ onMounted(async () => {
   font-weight: 700;
   color: var(--brand);
   flex-shrink: 0;
+}
+
+@media (max-width: 1360px) {
+  .stall-window {
+    width: 240px;
+  }
+
+  .stall-window .stall-cover {
+    width: 112px;
+    height: 90px;
+  }
+
+  .mini-dish {
+    min-width: 76px;
+  }
+
+  .mini-cover {
+    height: 70px;
+  }
+}
+
+@media (max-width: 900px) {
+  .stall-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stall-window {
+    width: 100%;
+  }
+
+  .stall-dishes {
+    flex-wrap: wrap;
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: none;
+    border-top: 1px dashed var(--border);
+  }
 }
 
 @media (max-width: 1100px) {

@@ -31,4 +31,9 @@ public interface DishMapper extends BaseMapper<Dish> {
     List<DishVO> selectSignatureDishes(@Param("stallId") Long stallId,
                                        @Param("limit") Long limit,
                                        @Param("goodThreshold") Integer goodThreshold);
+
+    /** 某档口评分最高的若干菜品（美食探索档口排序页，右侧展示用） */
+    List<DishVO> selectTopRatedDishes(@Param("stallId") Long stallId,
+                                      @Param("limit") Long limit,
+                                      @Param("goodThreshold") Integer goodThreshold);
 }

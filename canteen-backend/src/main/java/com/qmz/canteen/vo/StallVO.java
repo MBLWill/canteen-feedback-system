@@ -44,4 +44,6 @@ public class StallVO {
     private Long salesCount;
     /** 招牌菜，优先取 featured=1 的菜品，不足时按评分补齐 */
     private List<DishVO> signatureDishes;
+    /** 档口内评分最高的菜品，仅 /stalls?dishLimit=N 时返回（美食探索档口排序页右侧展示） */
+    private List<DishVO> topDishes;
 }

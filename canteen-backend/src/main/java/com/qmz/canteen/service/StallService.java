@@ -10,6 +10,14 @@ public interface StallService {
 
     List<StallVO> listWithStats(String keyword, String area, Integer floor);
 
+    /**
+     * 档口列表 + 统计。
+     *
+     * @param dishLimit 不为空时，每个档口额外返回该档口评分最高的若干菜品（topDishes），
+     *                  供美食探索「档口排序」页一行档口 + 右侧热评菜品展示
+     */
+    List<StallVO> listWithStats(String keyword, String area, Integer floor, Integer dishLimit);
+
     StallVO getStallDetail(Long id);
 
     /** 某区域楼层的已占用窗口编号（含歇业档口），用于编号选择器 */

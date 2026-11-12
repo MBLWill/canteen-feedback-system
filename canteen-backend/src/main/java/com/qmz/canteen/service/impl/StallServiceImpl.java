@@ -72,12 +72,23 @@ public class StallServiceImpl implements StallService {
     private final BCryptPasswordEncoder passwordEncoder;
 
     private static final long SIGNATURE_LIMIT = 3L;
+    /** 美食探索档口排序页，单档口最多返回的菜品数（防止前端传过大值） */
+    private static final int TOP_DISH_LIMIT = 12;
 
     @Override
     public List<StallVO> listWithStats(String keyword, String area, Integer floor) {
+        return listWithStats(keyword, area, floor, null);
+    }
+
+    @Override
+    public List<StallVO> listWithStats(String keyword, String area, Integer floor, Integer dishLimit) {
         String kw = StringUtils.hasText(keyword) ? keyword.trim() : null;
         List<StallVO> stalls = stallMapper.selectStallWithStats(kw, area, floor, goodThreshold);
         stalls.forEach(this::fillSignatureDishes);
+        if (dishLimit != null && dishLimit > 0) {
+            long limit = Math.min(dishLimit, TOP_DISH_LIMIT);
+            stalls.forEach(s -> s.setTopDishes(dishMapper.selectTopRatedDishes(s.getId(), limit, goodThreshold)));
+        }
         return stalls;
     }
 

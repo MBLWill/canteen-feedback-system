@@ -132,4 +132,18 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 档口内评分最高的菜品：纯按评分降序，评分相同则评价多的、销量高的优先 -->
+    <select id="selectTopRatedDishes" resultType="com.qmz.canteen.vo.DishVO">
+        SELECT
+        <include refid="statColumns"/>,
+        0 AS favorited
+        FROM dish d
+        LEFT JOIN canteen_stall s ON d.stall_id = s.id AND s.deleted = 0
+        LEFT JOIN dish_review r ON r.dish_id = d.id AND r.deleted = 0 AND r.status = 1
+        WHERE d.deleted = 0 AND d.status = 1 AND d.stall_id = #{stallId}
+        <include refid="groupByDish"/>
+        ORDER BY avg_rating DESC, review_count DESC, d.featured DESC, d.id ASC
+        LIMIT #{limit}
+    </select>
+
 </mapper>
