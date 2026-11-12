@@ -1,63 +1,34 @@
 <template>
-  <div
-    class="ds"
-    :class="{ 'ds--full': fullscreen, 'ds--loading': loading }"
-    :style="fullscreen ? { '--ds-scale': screenScale, '--ds-w': stageWidth + 'px', '--ds-left': stageLeft + 'px' } : null"
-  >
-   <div class="ds-stage">
+  <div class="ds" :class="{ 'ds--full': fullscreen, 'ds--loading': loading }">
     <!-- ===== 顶部横幅 ===== -->
     <header class="ds-head">
       <div class="head-left">
-        <div class="head-badge">ADMIN · DATA SCREEN</div>
         <h1>食堂运营数据大屏</h1>
         <p class="head-sub">
-          数据截至 <b>{{ data.overview?.dataDate || '—' }}</b>
+          数据更新于 <b>{{ data.overview?.dataDate || '—' }}</b>
           · <b>{{ data.overview?.stallCount ?? 0 }}</b> 个档口
           / <b>{{ data.overview?.dishCount ?? 0 }}</b> 道在售菜品
           · <b>{{ data.overview?.reviewCount ?? 0 }}</b> 条评价
-          · <b>{{ data.overview?.studentCount ?? 0 }}</b> 名学生
+          · <b>{{ data.overview?.studentCount ?? 0 }}</b> 位学生
         </p>
       </div>
-
       <div class="head-right">
         <div class="clock">
           <span class="clock-time"><i class="live-dot" />{{ clock.time }}</span>
           <span class="clock-date">{{ clock.date }}</span>
         </div>
-
         <div class="range-switch">
-          <button
-            v-for="r in ranges"
-            :key="r.value"
-            class="range-btn"
-            :class="{ active: days === r.value }"
-            @click="setDays(r.value)"
-          >{{ r.label }}</button>
+          <button v-for="r in ranges" :key="r.value" class="range-btn" :class="{ active: days === r.value }" @click="setDays(r.value)">{{ r.label }}</button>
         </div>
-
-        <button class="pill-btn" :class="{ on: autoRefresh }" :title="autoRefresh ? '关闭自动刷新' : '每 60 秒自动刷新'" @click="toggleAuto">
-          <span class="pill-dot" />
-          {{ autoRefresh ? '自动刷新' : '手动' }}
+        <button class="pill-btn" :class="{ on: autoRefresh }" @click="toggleAuto">
+          <span class="pill-dot" />{{ autoRefresh ? '自动刷新' : '手动' }}
         </button>
-
-        <button class="icon-btn" :class="{ spinning: loading }" title="立即刷新" @click="loadAll">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" />
-          </svg>
+        <button class="icon-btn" :class="{ spinning: loading }" title="刷新" @click="loadAll">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></svg>
         </button>
-
-        <button
-          class="screen-btn"
-          :class="{ on: fullscreen }"
-          :title="fullscreen ? '退出大屏（Esc）' : '一屏展示全部图表'"
-          @click="toggleFullscreen"
-        >
-          <svg v-if="!fullscreen" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" />
-          </svg>
+        <button class="screen-btn" :class="{ on: fullscreen }" @click="toggleFullscreen">
+          <svg v-if="!fullscreen" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+          <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" /></svg>
           <span>{{ fullscreen ? '退出大屏' : '大屏模式' }}</span>
         </button>
       </div>
@@ -66,165 +37,111 @@
     <!-- ===== KPI ===== -->
     <div class="kpi-grid">
       <div v-for="(k, i) in kpis" :key="k.key" class="kpi" :style="{ '--accent': k.accent, '--i': i }">
-        <div class="kpi-glow" />
         <div class="kpi-top">
           <span class="kpi-icon">{{ k.emoji }}</span>
-          <span v-if="k.delta !== null && k.delta !== undefined" class="kpi-delta" :class="k.delta >= 0 ? 'up' : 'down'">
-            {{ k.delta >= 0 ? '▲' : '▼' }} {{ Math.abs(k.delta).toFixed(1) }}%
-          </span>
+          <span v-if="k.delta !== null && k.delta !== undefined" class="kpi-delta" :class="k.delta >= 0 ? 'up' : 'down'">{{ k.delta >= 0 ? '▲' : '▼' }} {{ Math.abs(k.delta).toFixed(1) }}%</span>
           <span v-else class="kpi-tag">{{ k.tag }}</span>
         </div>
-        <div class="kpi-value">
-          {{ k.value }}<small v-if="k.unit">{{ k.unit }}</small>
-        </div>
+        <div class="kpi-value">{{ k.value }}<small v-if="k.unit">{{ k.unit }}</small></div>
         <div class="kpi-label">{{ k.label }}</div>
         <div v-if="k.extra" class="kpi-extra">{{ k.extra }}</div>
       </div>
     </div>
 
-    <!-- ===== 经营洞察 ===== -->
-    <div class="insight-grid">
-      <div v-for="i in insights" :key="i.label" class="insight" :class="'tone-' + i.tone">
-        <span class="insight-emoji">{{ i.emoji }}</span>
-        <div class="insight-body">
-          <div class="insight-label">{{ i.label }}</div>
-          <div class="insight-value" :title="i.value">{{ i.value }}</div>
-          <div class="insight-hint">{{ i.hint }}</div>
+    <!-- ===== 中部趋势通栏 ===== -->
+    <section class="panel panel--trend">
+      <div class="panel-head">
+        <div>
+          <span class="panel-title">销量与营收趋势</span>
+          <span class="panel-sub">近 {{ days }} 天 · 柱=销量(份) / 线=营收(元) · 虚线为日均销量</span>
         </div>
+        <div class="legend-inline">
+          <i class="dot" style="background:#ff9f45" />销量
+          <i class="dot" style="background:#3b82f6; margin-left:12px" />营收
+        </div>
+      </div>
+      <div v-if="data.salesTrend?.length" class="panel-body"><EChart :option="trendOption" :height="chartH('286px')" /></div>
+      <el-empty v-else description="暂无销量数据" :image-size="70" />
+    </section>
+
+    <!-- ===== 左右两列 ===== -->
+    <div class="cols">
+      <!-- 左列 -->
+      <div class="col">
+        <section class="panel">
+          <div class="panel-head">
+            <div><span class="panel-title">档口销量排行</span><span class="panel-sub">按购买人数排序 · 点击柱子联动菜品榜</span></div>
+            <div class="head-tools">
+              <div class="mini-seg">
+                <button :class="{ active: stallMetric === 'quantity' }" @click="stallMetric = 'quantity'">销量</button>
+                <button :class="{ active: stallMetric === 'amount' }" @click="stallMetric = 'amount'">营收</button>
+              </div>
+              <button v-if="selectedStallId" class="filter-chip" @click="clearStallFilter">{{ selectedStallName }} ×</button>
+            </div>
+          </div>
+          <div v-if="data.stallRank?.length" class="panel-body"><EChart :option="stallRankOption" :height="chartH('300px')" @click="onStallClick" /></div>
+          <el-empty v-else description="暂无档口数据" :image-size="70" />
+        </section>
+
+        <section class="panel panel--quad">
+          <div class="panel-head">
+            <div><span class="panel-title">档口经营象限</span><span class="panel-sub">横轴=销量，纵轴=好评率，气泡=营收 · 均值线切四象限</span></div>
+          </div>
+          <div v-if="quadrantPoints.length" class="panel-body"><EChart :option="quadrantOption" :height="chartH('320px')" @click="onStallClick" /></div>
+          <el-empty v-else description="暂无可对比的档口数据" :image-size="70" />
+        </section>
+
+        <section class="panel panel--rate">
+          <div class="panel-head">
+            <div><span class="panel-title">评分分布</span><span class="panel-sub">全校 {{ data.overview?.reviewCount ?? 0 }} 条有效评价 · 平均 {{ Number(data.overview?.avgRating || 0).toFixed(2) }} 分</span></div>
+          </div>
+          <div v-if="data.ratingDist?.length" class="panel-body"><EChart :option="ratingOption" :height="chartH('300px')" /></div>
+          <el-empty v-else description="暂无评分数据" :image-size="70" />
+        </section>
+      </div>
+
+      <!-- 右列 -->
+      <div class="col">
+        <section class="panel">
+          <div class="panel-head">
+            <div><span class="panel-title">{{ dishTitle }}</span><span class="panel-sub">点击柱子查看菜品详情 · 按累计{{ dishMetric === 'amount' ? '营收' : '销量' }}</span></div>
+            <div class="mini-seg">
+              <button :class="{ active: dishMetric === 'quantity' }" @click="dishMetric = 'quantity'">销量</button>
+              <button :class="{ active: dishMetric === 'amount' }" @click="dishMetric = 'amount'">营收</button>
+            </div>
+          </div>
+          <div v-if="filteredDishRank.length" class="panel-body"><EChart :option="dishRankOption" :height="chartH('300px')" @click="onDishClick" /></div>
+          <el-empty v-else description="当前筛选下暂无排行数据" :image-size="70" />
+        </section>
+
+        <section class="panel panel--category">
+          <div class="panel-head">
+            <div><span class="panel-title">品类销量占比</span><span class="panel-sub">点击扇区联动菜品排行</span></div>
+            <button v-if="selectedCategory" class="filter-chip" @click="selectedCategory = ''">{{ selectedCategory }} ×</button>
+          </div>
+          <div v-if="data.categorySales?.length" class="panel-body"><EChart :option="categoryOption" :height="chartH('286px')" @click="onCategoryClick" /></div>
+          <el-empty v-else description="暂无品类数据" :image-size="70" />
+        </section>
+
+        <section class="panel panel--praise">
+          <div class="panel-head">
+            <div><span class="panel-title">各档口口碑对比</span><span class="panel-sub">好评率 = 4-5 星占比 · 低于 60% 标红</span></div>
+          </div>
+          <div v-if="data.stallRating?.length" class="panel-body"><EChart :option="goodRateOption" :height="chartH('300px')" /></div>
+          <el-empty v-else description="暂无评价数据" :image-size="70" />
+        </section>
       </div>
     </div>
 
-    <!-- ===== 图表区 ===== -->
-    <div class="chart-grid">
-      <!-- 销量营收趋势 -->
-      <section class="card span-8 card--trend">
-        <div class="card-head">
-          <div>
-            <span class="card-title">销量与营收趋势</span>
-            <span class="card-sub">近 {{ days }} 天 · 柱=销量(份) / 线=营收(元) · 虚线为日均销量</span>
-          </div>
-          <div class="legend-inline">
-            <i class="dot" style="background:#ff9f45" />销量
-            <i class="dot" style="background:#3b82f6; margin-left:12px" />营收
-          </div>
-        </div>
-        <div v-if="data.salesTrend?.length" class="chart-body">
-          <EChart :option="trendOption" :height="chartH('286px')" />
-        </div>
-        <el-empty v-else description="暂无销量数据" :image-size="70" />
-      </section>
-
-      <!-- 品类占比 -->
-      <section class="card span-4 card--category">
-        <div class="card-head">
-          <div>
-            <span class="card-title">品类销量占比</span>
-            <span class="card-sub">点击扇区联动菜品排行</span>
-          </div>
-          <button v-if="selectedCategory" class="filter-chip" @click="selectedCategory = ''">
-            {{ selectedCategory }} ×
-          </button>
-        </div>
-        <div v-if="data.categorySales?.length" class="chart-body">
-          <EChart :option="categoryOption" :height="chartH('286px')" @click="onCategoryClick" />
-        </div>
-        <el-empty v-else description="暂无品类数据" :image-size="70" />
-      </section>
-
-      <!-- 档口排行 -->
-      <section class="card span-6 card--stall">
-        <div class="card-head">
-          <div>
-            <span class="card-title">档口销量排行</span>
-            <span class="card-sub">按购买人数排序 · 点击柱子筛选右侧菜品</span>
-          </div>
-          <div class="head-tools">
-            <div class="mini-seg">
-              <button :class="{ active: stallMetric === 'quantity' }" @click="stallMetric = 'quantity'">销量</button>
-              <button :class="{ active: stallMetric === 'amount' }" @click="stallMetric = 'amount'">营收</button>
-            </div>
-            <button v-if="selectedStallId" class="filter-chip" @click="clearStallFilter">
-              {{ selectedStallName }} ×
-            </button>
-          </div>
-        </div>
-        <div v-if="data.stallRank?.length" class="chart-body">
-          <EChart :option="stallRankOption" :height="chartH('300px')" @click="onStallClick" />
-        </div>
-        <el-empty v-else description="暂无档口数据" :image-size="70" />
-      </section>
-
-      <!-- 菜品 TOP -->
-      <section class="card span-6 card--dish">
-        <div class="card-head">
-          <div>
-            <span class="card-title">{{ dishTitle }}</span>
-            <span class="card-sub">点击柱子查看菜品详情 · 按累计{{ dishMetric === 'amount' ? '营收' : '销量' }}</span>
-          </div>
-          <div class="mini-seg">
-            <button :class="{ active: dishMetric === 'quantity' }" @click="dishMetric = 'quantity'">销量</button>
-            <button :class="{ active: dishMetric === 'amount' }" @click="dishMetric = 'amount'">营收</button>
-          </div>
-        </div>
-        <div v-if="filteredDishRank.length" class="chart-body">
-          <EChart :option="dishRankOption" :height="chartH('300px')" @click="onDishClick" />
-        </div>
-        <el-empty v-else description="当前筛选下暂无排行数据" :image-size="70" />
-      </section>
-
-      <!-- 档口口碑 -->
-      <section class="card span-6 card--praise">
-        <div class="card-head">
-          <div>
-            <span class="card-title">各档口口碑对比</span>
-            <span class="card-sub">好评率 = 4-5 星占比 · 低于 60% 标红</span>
-          </div>
-        </div>
-        <div v-if="data.stallRating?.length" class="chart-body">
-          <EChart :option="goodRateOption" :height="chartH('300px')" />
-        </div>
-        <el-empty v-else description="暂无评价数据" :image-size="70" />
-      </section>
-
-      <!-- 评分分布 -->
-      <section class="card span-6 card--rate">
-        <div class="card-head">
-          <div>
-            <span class="card-title">评分分布</span>
-            <span class="card-sub">全校 {{ data.overview?.reviewCount ?? 0 }} 条有效评价 · 平均 {{ Number(data.overview?.avgRating || 0).toFixed(2) }} 分</span>
-          </div>
-        </div>
-        <div v-if="data.ratingDist?.length" class="chart-body">
-          <EChart :option="ratingOption" :height="chartH('300px')" />
-        </div>
-        <el-empty v-else description="暂无评分数据" :image-size="70" />
-      </section>
-
-      <!-- 经营象限 -->
-      <section class="card span-12 card--quad">
-        <div class="card-head">
-          <div>
-            <span class="card-title">档口经营象限</span>
-            <span class="card-sub">横轴=销量，纵轴=好评率，气泡大小=营收 · 右上为「量高口碑好」明星档口，右上分区线为均值</span>
-          </div>
-        </div>
-        <div v-if="quadrantPoints.length" class="chart-body">
-          <EChart :option="quadrantOption" :height="chartH('320px')" @click="onStallClick" />
-        </div>
-        <el-empty v-else description="暂无可对比的档口数据" :image-size="70" />
-      </section>
-    </div>
-
+    <!-- ===== 底部信息栏 ===== -->
     <footer class="ds-foot">
       数据来源：菜品销量汇总 / 评价表 · 趋势为近 {{ days }} 天，排行与评分为累计口径
-      <span class="dot-sep">·</span>
-      最后刷新 {{ updatedAt || '—' }}
-      <span class="dot-sep">·</span>
-      仅管理员可见
+      <span class="dot-sep">·</span> 最后刷新 {{ updatedAt || '—' }}
+      <span class="dot-sep">·</span> 仅管理员可见
     </footer>
-   </div>
   </div>
 </template>
+
 
 <script setup>
 import { ref, reactive, computed, onMounted, onActivated, onBeforeUnmount, watch } from 'vue'
@@ -763,9 +680,9 @@ const dishRankOption = computed(() => {
 /* ---------- 档口好评率 ---------- */
 const goodRateOption = computed(() => {
   const src = [...(data.value.stallRating || [])].sort((a, b) => a.goodRate - b.goodRate)
-  // 大屏下卡片较矮，横向条形收敛到好评率前 8 名，避免 12 条标签挤成一团
-  const list = fullscreen.value ? src.slice(-8) : src
-  const vertical = false
+  // 大屏下用垂直柱状图（12 档口横向排开，好评率作柱高），彻底避免横向条形标签重叠
+  const list = src
+  const vertical = fullscreen.value
   return {
     animationDuration: 800,
     animationDurationUpdate: 480,
@@ -1125,37 +1042,6 @@ function chartH(base) {
   return fullscreen.value ? '100%' : base
 }
 
-/**
- * 大屏画布：以 960px 高、1.62 宽高比为基准。
- * 竖向按视口高度等比缩放；横向限制最大宽度并居中，
- * 避免超宽窗口把每个卡片拉成又宽又扁的条状。
- */
-const DS_STAGE_H = 960
-const DS_STAGE_RATIO = 1.5
-const screenScale = ref(1)
-const stageWidth = ref(0)
-const stageLeft = ref(0)
-
-function updateScreenScale() {
-  if (!fullscreen.value) {
-    screenScale.value = 1
-    stageWidth.value = 0
-    stageLeft.value = 0
-    return
-  }
-  const vw = window.innerWidth || 1440
-  const vh = window.innerHeight || DS_STAGE_H
-  const s = Math.max(0.35, vh / DS_STAGE_H)
-  const w = Math.min(vw / s, DS_STAGE_H * DS_STAGE_RATIO)
-  screenScale.value = Number(s.toFixed(4))
-  stageWidth.value = Math.round(w)
-  stageLeft.value = Math.max(0, Math.round((vw - w * s) / 2))
-}
-
-function onWindowResize() {
-  updateScreenScale()
-}
-
 async function toggleFullscreen() {
   const next = !fullscreen.value
   fullscreen.value = next
@@ -1175,7 +1061,6 @@ async function toggleFullscreen() {
 /** 用户用系统方式退出全屏时同步内部状态 */
 function onFsChange() {
   if (!document.fullscreenElement && fullscreen.value) fullscreen.value = false
-  updateScreenScale()
 }
 
 function onKeydown(e) {
@@ -1186,7 +1071,6 @@ function onKeydown(e) {
 }
 watch(fullscreen, v => {
   document.body.style.overflow = v ? 'hidden' : ''
-  updateScreenScale()
   // 进出大屏后容器尺寸变化，让图表按新尺寸重绘
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
 })
@@ -1218,9 +1102,7 @@ onMounted(async () => {
   tickClock()
   clockTimer = setInterval(tickClock, 1000)
   window.addEventListener('keydown', onKeydown)
-  window.addEventListener('resize', onWindowResize)
   document.addEventListener('fullscreenchange', onFsChange)
-  updateScreenScale()
   await loadAll()
 })
 
@@ -1233,7 +1115,6 @@ onBeforeUnmount(() => {
   if (autoTimer) clearInterval(autoTimer)
   if (rafId) cancelAnimationFrame(rafId)
   window.removeEventListener('keydown', onKeydown)
-  window.removeEventListener('resize', onWindowResize)
   document.removeEventListener('fullscreenchange', onFsChange)
   if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {})
   document.body.style.overflow = ''
@@ -1241,187 +1122,309 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ===================== 基础 ===================== */
 .ds {
-  position: relative;
-  isolation: isolate;
-  padding: 16px 18px 22px;
+  --brand: #ff7a1a;
+  --brand-dark: #e35f00;
+  padding: 16px 20px 18px;
   min-height: 100%;
   background: var(--bg);
 }
 
-/*
- * 背景光晕放在伪元素上：路由 <transition> 会把组件根元素的 animation 当成过渡动画来等待，
- * 根元素挂无限动画会导致离开过渡永远结束不了、旧页面残留（其它菜单点开像是没反应）。
- */
-.ds::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(1100px 380px at 8% -10%, rgba(255, 122, 26, .10), transparent 62%),
-    radial-gradient(900px 360px at 100% 0%, rgba(59, 130, 246, .09), transparent 60%);
-  background-size: 160% 160%, 150% 150%;
-  animation: bgDrift 26s ease-in-out infinite alternate;
+/* ===================== 顶部横幅 ===================== */
+.ds-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 24px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, #7b3f00, #a8581a 55%, #c9712e);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(123, 63, 0, .22);
+  margin-bottom: 16px;
 }
 
-/* 背景光晕缓慢漂移，让静态看板有呼吸感 */
-@keyframes bgDrift {
-  from { background-position: 0% 0%, 100% 0%, 0 0; }
-  to { background-position: 45% 35%, 55% 25%, 0 0; }
+.ds-head h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  white-space: nowrap;
 }
 
-/* 全屏大屏模式：覆盖整个视口 */
-/* 大屏模式：铺满视口，一屏装下全部图表（不滚动） */
-.ds--full {
-  --ds-scale: 1;
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  overflow: hidden;
-  padding: 0;
-  background:
-    radial-gradient(1100px 420px at 50% -8%, rgba(255, 122, 26, .10), transparent 68%),
-    var(--bg);
-  animation: fsIn .28s ease-out both;
+.head-sub {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, .78);
 }
 
-/*
- * 大屏舞台：以 960×1555 的画布排版后整体等比缩放。
- * 宽度受限并水平居中 → 卡片不会被超宽视口拉扁；高度始终铺满视口。
- */
-.ds--full .ds-stage {
-  position: absolute;
-  top: 0;
-  left: var(--ds-left, 0px);
+.head-sub b {
+  color: #ffd7b0;
+  font-weight: 700;
+}
+
+.head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.clock {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: var(--ds-w, 100%);
-  height: calc(100% / var(--ds-scale));
-  padding: 10px 14px;
-  transform: scale(var(--ds-scale));
-  transform-origin: top left;
+  align-items: flex-end;
+  padding-right: 14px;
+  border-right: 1px solid rgba(255, 255, 255, .25);
 }
 
-/* 顶部收成一行标题，减少信息层级 */
-.ds--full .ds-head {
-  flex-shrink: 0;
-  padding: 12px 22px;
-  margin-bottom: 0;
+.clock-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
 }
 
-.ds--full .head-left {
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, .7);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, .7); }
+  70% { box-shadow: 0 0 0 7px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+.clock-date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, .7);
+  margin-top: 2px;
+}
+
+.range-switch {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .14);
 }
 
-.ds--full .head-badge { display: none; }
-.ds--full .ds-head h1 { font-size: 21px; letter-spacing: .4px; }
-.ds--full .head-sub { margin: 0; font-size: 12px; color: rgba(255, 255, 255, .62); }
-.ds--full .head-sub b { color: #ffd7b0; }
-.ds--full .clock { padding-right: 12px; }
-.ds--full .clock-time { font-size: 19px; }
-.ds--full .clock-date { font-size: 10px; }
-.ds--full .range-btn { padding: 6px 12px; }
+.range-btn {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 12.5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .16s ease;
+  white-space: nowrap;
+}
 
-/* 六项指标合并成一条，视觉上从 6 张卡变成 1 个模块 */
-.ds--full .kpi-grid {
-  flex-shrink: 0;
+.range-btn:hover { background: rgba(255, 255, 255, .12); }
+
+.range-btn.active {
+  background: #fff;
+  color: #b4530b;
+  font-weight: 700;
+}
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  font-size: 12.5px;
+  padding: 7px 13px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+.pill-btn.on .pill-dot {
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, .9);
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  cursor: pointer;
+  transition: all .16s ease;
+}
+
+.icon-btn:hover { background: rgba(255, 255, 255, .24); }
+.icon-btn.spinning svg { animation: spin .9s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.screen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  color: #b4530b;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .16s ease;
+}
+
+.screen-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, .2); }
+
+.screen-btn.on {
+  background: rgba(255, 255, 255, .18);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4);
+}
+
+/* ===================== KPI ===================== */
+.kpi-grid {
+  display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 0;
-  padding: 12px 8px;
-  margin-bottom: 0;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.kpi {
+  position: relative;
+  padding: 16px 18px;
+  border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
   box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  transition: transform .18s ease, box-shadow .18s ease;
 }
 
-.ds--full .kpi {
-  padding: 0 20px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible;
-  animation: none;
+.kpi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
 }
 
-.ds--full .kpi + .kpi { border-left: 1px solid var(--border); }
-.ds--full .kpi::before,
-.ds--full .kpi-glow { display: none; }
-.ds--full .kpi:hover { transform: none; box-shadow: none; }
-.ds--full .kpi-top { justify-content: flex-start; gap: 8px; margin-bottom: 6px; min-height: 18px; }
-.ds--full .kpi-icon { font-size: 15px; }
-.ds--full .kpi-tag { display: none; }
-.ds--full .kpi-value { font-size: 25px; }
-.ds--full .kpi-label { margin-top: 4px; font-size: 12px; }
-.ds--full .kpi-extra { display: none; }
-
-/* 洞察条与页脚在大屏下让位给图表 */
-.ds--full .insight-grid,
-.ds--full .ds-foot { display: none; }
-
-/* ---------- 大屏：核心 4 行布局 ---------- */
-.ds--full .chart-grid {
-  flex: 1;
-  /* 4 行：趋势 / 档口·菜品 / 象限·品类 / 评分·口碑，每行高度充足 */
-  min-height: 688px;
-  grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: minmax(170px, 1.18fr) minmax(210px, 1.5fr) minmax(170px, 1.16fr) minmax(170px, 1.16fr);
-  gap: 12px;
+.kpi:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(16, 24, 40, .1);
 }
 
-/* 第 1 行：销量营收趋势通栏（视觉 C 位） */
-.ds--full .card--trend { grid-area: 1 / 1 / 2 / 13; }
-/* 第 2 行：档口销量排行 | 菜品 TOP8（横向条形，给足高度） */
-.ds--full .card--stall { grid-area: 2 / 1 / 3 / 7; }
-.ds--full .card--dish { grid-area: 2 / 7 / 3 / 13; }
-/* 第 3 行：档口经营象限 | 品类占比 */
-.ds--full .card--quad { grid-area: 3 / 1 / 4 / 7; }
-.ds--full .card--category { grid-area: 3 / 7 / 4 / 13; }
-/* 第 4 行：评分分布 | 各档口口碑对比（口碑横向条形，收敛前 8） */
-.ds--full .card--rate { grid-area: 4 / 1 / 5 / 7; }
-.ds--full .card--praise { grid-area: 4 / 7 / 5 / 13; }
+.kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
 
-.ds--full .card {
+.kpi-icon { font-size: 17px; }
+
+.kpi-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.kpi-delta {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.kpi-delta.up { color: #e11d48; }
+.kpi-delta.down { color: #16a34a; }
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-value small {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-left: 3px;
+}
+
+.kpi-label {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.kpi-extra {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* ===================== 面板（图表卡） ===================== */
+.panel {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  padding: 16px 20px 14px;
-  border: none;
-  border-radius: 18px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 12px 30px rgba(16, 24, 40, .07);
-  animation: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
 }
 
-.ds--full .card:hover {
-  transform: none;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 12px 30px rgba(16, 24, 40, .07);
-}
-
-/* 标题区与图表区用细线分开，标题加粗放大 */
-.ds--full .card-head {
+.panel-head {
+  display: flex;
   align-items: flex-start;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px 10px;
   border-bottom: 1px solid var(--border);
 }
 
-.ds--full .card-title {
+.panel-title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 15px;
   font-weight: 800;
-  letter-spacing: .2px;
+  color: var(--text-1);
 }
 
-.ds--full .card-title::before {
+.panel-title::before {
   content: '';
   width: 4px;
   height: 14px;
@@ -1429,536 +1432,17 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, #ffb066, #ff7a1a);
 }
 
-.ds--full .card-sub {
+.panel-sub {
   display: block;
   margin-top: 4px;
   font-size: 11.5px;
   color: var(--text-3);
 }
 
-.ds--full .chart-body { flex: 1; min-height: 0; }
-
-/*
- * 视口明显偏矮（如笔记本 1080×600 左右的窗口）时，
- * 与其把三行图表压成薄片，不如给足高度、让页面自然滚动。
- */
-
-
-@keyframes fsIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.ds--loading { cursor: progress; }
-
-/* ===== 顶部横幅 ===== */
-.ds-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  flex-wrap: wrap;
-  padding: 18px 22px;
-  margin-bottom: 14px;
-  border-radius: 18px;
-  background: linear-gradient(118deg, #2b1a0d 0%, #6b3410 42%, #b4530b 100%);
-  box-shadow: 0 10px 30px rgba(180, 83, 11, .22);
-  overflow: hidden;
-}
-
-.ds-head::after {
-  content: '';
-  position: absolute;
-  right: -60px;
-  top: -70px;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 68%);
-  pointer-events: none;
-}
-
-/* 横幅上的高光扫过 */
-.ds-head::before {
-  content: '';
-  position: absolute;
-  top: -40%;
-  bottom: -40%;
-  width: 38%;
-  left: -55%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .12), transparent);
-  transform: skewX(-16deg);
-  animation: sweep 7.5s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes sweep {
-  0% { left: -55%; }
-  60%, 100% { left: 125%; }
-}
-
-.head-left { position: relative; z-index: 1; }
-
-.head-badge {
-  display: inline-block;
-  padding: 2px 9px;
-  margin-bottom: 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, .16);
-  color: #ffd7b0;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.6px;
-}
-
-.ds-head h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: .6px;
-}
-
-.head-sub {
-  margin: 7px 0 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, .72);
-}
-
-.head-sub b { color: #ffcf9e; font-weight: 700; }
-
-.head-right {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.clock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.2;
-  padding-right: 14px;
-  margin-right: 4px;
-  border-right: 1px solid rgba(255, 255, 255, .18);
-}
-
-.clock-time {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 1px;
-}
-
-.live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 0 0 rgba(74, 222, 128, .65);
-  animation: livePulse 2s ease-out infinite;
-}
-
-@keyframes livePulse {
-  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, .6); }
-  70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
-}
-
-.clock-date { font-size: 11px; color: rgba(255, 255, 255, .62); }
-
-.range-switch {
-  display: flex;
-  padding: 3px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, .13);
-  gap: 2px;
-}
-
-.range-btn {
-  padding: 7px 13px;
-  border: none;
-  border-radius: 9px;
-  background: transparent;
-  color: rgba(255, 255, 255, .78);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .18s ease;
-  white-space: nowrap;
-}
-
-.range-btn:hover { color: #fff; background: rgba(255, 255, 255, .12); }
-
-.range-btn.active {
-  background: #fff;
-  color: #b4530b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .14);
-}
-
-.pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, .22);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, .10);
-  color: rgba(255, 255, 255, .82);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .18s ease;
-  white-space: nowrap;
-}
-
-.pill-btn:hover { background: rgba(255, 255, 255, .2); color: #fff; }
-
-.pill-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .45);
-}
-
-.pill-btn.on {
-  background: rgba(255, 255, 255, .95);
-  color: #b4530b;
-  border-color: #fff;
-}
-
-.pill-btn.on .pill-dot {
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, .25);
-  animation: pulse 1.8s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .35; }
-}
-
-.icon-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, .22);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, .12);
-  color: #fff;
-  cursor: pointer;
-  transition: all .18s ease;
-}
-
-.icon-btn:hover { background: rgba(255, 255, 255, .22); }
-.icon-btn.spinning svg { animation: spin .9s linear infinite; }
-
-/* 一屏展示按钮 */
-.screen-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 13px;
-  border: 1px solid rgba(255, 255, 255, .28);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, .14);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all .18s ease;
-}
-
-.screen-btn:hover {
-  background: rgba(255, 255, 255, .26);
-  transform: translateY(-1px);
-}
-
-.screen-btn.on {
-  background: #fff;
-  border-color: #fff;
-  color: #b4530b;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ===== KPI ===== */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.kpi {
-  position: relative;
-  padding: 13px 15px 12px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-xs);
-  overflow: hidden;
-  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
-  animation: rise .5s cubic-bezier(.22, .8, .3, 1) both;
-  animation-delay: calc(var(--i) * 45ms);
-}
-
-/* 用 translate 而非 transform 做入场，避免覆盖 hover 的 transform */
-@keyframes rise {
-  from { opacity: 0; translate: 0 10px; }
-  to { opacity: 1; translate: 0 0; }
-}
-
-.kpi:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 24px rgba(16, 24, 40, .10);
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-}
-
-.kpi:hover .kpi-glow {
-  opacity: .24;
-  transform: scale(1.15);
-}
-
-.kpi-glow {
-  position: absolute;
-  top: -28px;
-  right: -22px;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: .12;
-  filter: blur(6px);
-  transition: opacity .28s ease, transform .28s ease;
-  pointer-events: none;
-}
-
-.kpi::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 16%;
-  bottom: 16%;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-}
-
-.kpi-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 7px;
-  min-height: 18px;
-}
-
-.kpi-icon { font-size: 17px; line-height: 1; }
-
-.kpi-tag {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
-  padding: 1px 6px;
-  border-radius: 5px;
-}
-
-.kpi-delta {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 5px;
-  letter-spacing: .2px;
-}
-
-.kpi-delta.up { color: #d43c3c; background: rgba(212, 60, 60, .10); }
-.kpi-delta.down { color: #15803d; background: rgba(21, 128, 61, .10); }
-
-.kpi-value {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--text-1);
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -.4px;
-  white-space: nowrap;
-}
-
-.kpi-value small {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-3);
-  margin-left: 2px;
-}
-
-.kpi-label {
-  margin-top: 5px;
-  font-size: 12px;
-  color: var(--text-3);
-}
-
-.kpi-extra {
-  margin-top: 2px;
-  font-size: 10px;
-  color: #a9b1bd;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ===== 洞察 ===== */
-.insight-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.insight {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  border-radius: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-xs);
-  overflow: hidden;
-  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
-  animation: rise .55s cubic-bezier(.22, .8, .3, 1) both;
-}
-
-.insight:nth-child(1) { animation-delay: 260ms; }
-.insight:nth-child(2) { animation-delay: 320ms; }
-.insight:nth-child(3) { animation-delay: 380ms; }
-.insight:nth-child(4) { animation-delay: 440ms; }
-
-.insight:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-  border-color: color-mix(in srgb, var(--tone, #ff7a1a) 30%, var(--border));
-}
-
-.insight:hover .insight-emoji {
-  animation: pop .5s cubic-bezier(.34, 1.56, .64, 1);
-}
-
-@keyframes pop {
-  0% { transform: scale(1); }
-  45% { transform: scale(1.16); }
-  100% { transform: scale(1); }
-}
-
-.insight::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--tone, #ff7a1a);
-}
-
-.insight-emoji {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--tone, #ff7a1a) 12%, transparent);
-  font-size: 17px;
-}
-
-.insight-body { min-width: 0; flex: 1; }
-
-.insight-label { font-size: 11px; color: var(--text-3); }
-
-.insight-value {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-1);
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.insight-hint {
-  font-size: 10px;
-  color: #a9b1bd;
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tone-gold { --tone: #f59e0b; }
-.tone-green { --tone: #22c55e; }
-.tone-blue { --tone: #3b82f6; }
-.tone-red { --tone: #ef4444; }
-.tone-orange { --tone: #ff7a1a; }
-
-/* ===== 图表网格 ===== */
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 16px;
-}
-
-.card {
-  padding: 14px 16px 10px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-xs);
-  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
-  animation: rise .6s cubic-bezier(.22, .8, .3, 1) both;
-}
-
-.chart-grid .card:nth-child(1) { animation-delay: 120ms; }
-.chart-grid .card:nth-child(2) { animation-delay: 190ms; }
-.chart-grid .card:nth-child(3) { animation-delay: 260ms; }
-.chart-grid .card:nth-child(4) { animation-delay: 330ms; }
-.chart-grid .card:nth-child(5) { animation-delay: 400ms; }
-.chart-grid .card:nth-child(6) { animation-delay: 470ms; }
-.chart-grid .card:nth-child(7) { animation-delay: 540ms; }
-
-.card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 26px rgba(16, 24, 40, .09);
-  border-color: var(--border-strong);
-}
-
-.span-4 { grid-column: span 4; }
-.span-6 { grid-column: span 6; }
-.span-8 { grid-column: span 8; }
-.span-12 { grid-column: span 12; }
-
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px 8px;
 }
 
 .head-tools {
@@ -1967,131 +1451,175 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
-.card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-1);
+.mini-seg {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--bg, #f5f7fa);
+  border: 1px solid var(--border);
 }
 
-.card-sub {
-  display: block;
-  margin-top: 3px;
+.mini-seg button {
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  padding: 4px 11px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.mini-seg button.active {
+  background: #fff;
+  color: var(--brand);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(16, 24, 40, .08);
+}
+
+.filter-chip {
+  padding: 4px 11px;
+  border: 1px solid var(--brand-line, #ffd4ae);
+  border-radius: 12px;
+  background: var(--brand-soft, #fff3e8);
+  color: var(--brand-dark);
   font-size: 11px;
-  color: var(--text-3);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .legend-inline {
   display: flex;
   align-items: center;
-  font-size: 11px;
+  gap: 5px;
+  font-size: 12px;
   color: var(--text-3);
-}
-
-.dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 4px;
-}
-
-.mini-seg {
-  display: flex;
-  padding: 2px;
-  border-radius: 8px;
-  background: #f1f4f8;
-  gap: 2px;
-}
-
-.mini-seg button {
-  padding: 3px 9px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .16s ease;
-}
-
-.mini-seg button:hover { color: var(--text-1); }
-
-.mini-seg button.active {
-  background: #fff;
-  color: var(--brand-dark);
-  box-shadow: 0 1px 3px rgba(16, 24, 40, .10);
-}
-
-.filter-chip {
-  padding: 4px 11px;
-  border: 1px solid var(--brand-line);
-  border-radius: 12px;
-  background: var(--brand-soft);
-  color: var(--brand-dark);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .16s ease;
   white-space: nowrap;
-  animation: chipIn .24s cubic-bezier(.34, 1.56, .64, 1);
 }
 
-@keyframes chipIn {
-  from { opacity: 0; transform: scale(.84); }
-  to { opacity: 1; transform: scale(1); }
+.legend-inline .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: inline-block;
 }
 
-.filter-chip:hover {
-  background: #ffe7d2;
-  border-color: var(--brand);
+/* ===================== 布局：普通模式（长页） ===================== */
+.panel--trend { height: 320px; margin-bottom: 16px; }
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.col .panel { height: 340px; }
+.col .panel--quad,
+.col .panel--category { height: 300px; }
+.col .panel--rate,
+.col .panel--praise { height: 240px; }
 
 .ds-foot {
-  margin-top: 14px;
-  padding: 4px 2px 0;
-  font-size: 11px;
-  color: #a9b1bd;
-  text-align: right;
+  margin-top: 16px;
+  padding-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-3);
 }
 
-.dot-sep { margin: 0 6px; }
+.dot-sep { margin: 0 6px; color: var(--border-strong, #d5dbe3); }
 
-@media (max-width: 1360px) {
-  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
-  .insight-grid { grid-template-columns: repeat(2, 1fr); }
+/* ===================== 全屏大屏模式 ===================== */
+.ds--full {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 14px;
+  padding: 14px 18px 12px;
+  overflow: hidden;
+  background: var(--bg);
 }
 
-@media (max-width: 1180px) {
-  .span-8, .span-4 { grid-column: span 12; }
-  .span-6 { grid-column: span 6; }
+.ds--full .ds-head {
+  margin-bottom: 0;
+  padding: 12px 22px;
 }
 
-@media (max-width: 900px) {
-  .span-6 { grid-column: span 12; }
+.ds--full .ds-head h1 { font-size: 22px; }
+.ds--full .head-sub { font-size: 12px; }
+
+.ds--full .kpi-grid {
+  margin-bottom: 0;
+  gap: 12px;
+}
+
+.ds--full .kpi { padding: 12px 16px; }
+.ds--full .kpi-value { font-size: 24px; }
+.ds--full .kpi-extra { display: none; }
+
+.ds--full .panel--trend {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.ds--full .cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ds--full .col {
+  display: grid;
+  grid-template-rows: 1.25fr 1fr 0.9fr;
+  gap: 14px;
+  min-height: 0;
+}
+
+.ds--full .col .panel,
+.ds--full .col .panel--quad,
+.ds--full .col .panel--category,
+.ds--full .col .panel--rate,
+.ds--full .col .panel--praise {
+  height: auto;
+  min-height: 0;
+}
+
+.ds--full .panel-head { padding: 11px 16px 8px; }
+.ds--full .panel-title { font-size: 14px; }
+.ds--full .panel-body { padding: 4px 6px 6px; }
+
+.ds--full .ds-foot {
+  margin-top: 0;
+  padding-top: 8px;
+  font-size: 11.5px;
+}
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 1280px) {
+  .kpi-value { font-size: 24px; }
+  .head-sub { display: none; }
 }
 
 @media (max-width: 720px) {
   .ds { padding: 12px; }
-  .ds-head { padding: 14px 16px; }
-  .ds-head h1 { font-size: 19px; }
-  .clock { display: none; }
+  .ds-head { flex-direction: column; align-items: flex-start; }
+  .head-right { flex-wrap: wrap; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .kpi-value { font-size: 20px; }
-}
-
-/* 尊重系统「减少动态效果」偏好 */
-@media (prefers-reduced-motion: reduce) {
-  .ds,
-  .ds--full,
-  .ds-head::before,
-  .kpi,
-  .insight,
-  .card,
-  .filter-chip,
-  .live-dot,
-  .pill-btn.on .pill-dot {
-    animation: none !important;
-  }
+  .cols { grid-template-columns: 1fr; }
 }
 </style>
+
