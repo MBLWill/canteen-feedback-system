@@ -909,8 +909,8 @@ const quadrantOption = computed(() => {
         type: 'effectScatter',
         silent: true,
         z: 1,
-        symbolSize: v => 8 + Math.sqrt(v[2] / maxAmount) * 26,
-        rippleEffect: { period: 4, scale: 3.4, brushType: 'stroke', number: 2 },
+        symbolSize: v => 9 + Math.sqrt(v[2] / maxAmount) * 18,
+        rippleEffect: { period: 4.2, scale: 2.9, brushType: 'stroke', number: 2 },
         data: pts.map(p => ({
           value: [p.quantity, p.goodRate, p.amount],
           itemStyle: { color: colorOf(p), opacity: 0.55 }
@@ -920,7 +920,7 @@ const quadrantOption = computed(() => {
       {
         type: 'scatter',
         z: 3,
-        symbolSize: v => 14 + Math.sqrt(v[2] / maxAmount) * 30,
+        symbolSize: v => 8 + Math.sqrt(v[2] / maxAmount) * 16,
         data: pts.map(p => ({
           value: [p.quantity, p.goodRate, p.amount],
           raw: p,
@@ -930,21 +930,25 @@ const quadrantOption = computed(() => {
             opacity: 0.9,
             borderColor: '#fff',
             borderWidth: 1.5,
-            shadowBlur: 16,
+            shadowBlur: 12,
             shadowColor: rgba(colorOf(p), 0.4)
           }
         })),
         label: {
           show: true,
           position: 'right',
-          distance: 8,
+          distance: 10,
           formatter: p => p.data.raw.stallName,
           color: '#5b6472',
-          fontSize: 11
+          fontSize: 11,
+          textBorderColor: 'rgba(255,255,255,0.92)',
+          textBorderWidth: 2
         },
+        // 点位靠近时标签自动上下错开，避免文字叠在一起
+        labelLayout: { moveOverlap: 'shiftY' },
         emphasis: {
           scale: 1.15,
-          itemStyle: { opacity: 1, borderWidth: 2, shadowBlur: 22 }
+          itemStyle: { opacity: 1, borderWidth: 1.6, shadowBlur: 18 }
         },
         markLine: {
           silent: true,
