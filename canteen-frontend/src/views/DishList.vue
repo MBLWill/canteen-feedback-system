@@ -101,11 +101,13 @@
           <template v-if="isStallMode">
             <div class="stall-tip">
               <span class="stall-tip-main">按购买人数排序</span>
-              <span class="stall-tip-sub">共 {{ sortedStalls.length }} 个档口 · 右侧为该档口评分较高的菜品</span>
+              <span class="stall-tip-sub">
+                共 {{ sortedStalls.length }} 个档口 · 第 {{ stallPage }} / {{ stallPageCount }} 页 · 右侧为该档口评分较高的菜品
+              </span>
             </div>
 
             <div v-loading="stallsLoading" class="stall-list">
-              <div v-for="st in sortedStalls" :key="st.id" class="stall-row">
+              <div v-for="st in pagedStalls" :key="st.id" class="stall-row">
                 <!-- 左：档口窗口信息 -->
                 <div class="stall-window" @click="selectStall(st)">
                   <div class="stall-cover" :style="{ background: coverGradient(st.category) }">
@@ -154,6 +156,18 @@
                   <div v-if="!(st.topDishes && st.topDishes.length)" class="stall-no-dish">该档口暂无在售菜品</div>
                 </div>
               </div>
+            </div>
+            <div v-if="stallPageCount > 1" class="plaza-pager stall-pager">
+              <el-pagination
+                v-model:current-page="stallPage"
+                v-model:page-size="stallPageSize"
+                :total="sortedStalls.length"
+                :page-sizes="[STALL_PAGE_MIN, 12, 24, 48]"
+                layout="total, sizes, prev, pager, next"
+                background
+                @current-change="onStallPageChange"
+                @size-change="onStallSizeChange"
+              />
             </div>
             <el-empty v-if="!stallsLoading && !stalls.length" description="暂无档口" />
           </template>
@@ -248,7 +262,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DishCard from '@/components/DishCard.vue'
 import BannerCarousel from '@/components/BannerCarousel.vue'
@@ -277,6 +291,10 @@ const stalls = ref([])
 const stallsLoading = ref(false)
 // 档口行右侧展示的菜品数（后端按评分降序返回）
 const STALL_DISH_LIMIT = 3
+// 档口分页：每页条数下限，避免一页只放一两个档口
+const STALL_PAGE_MIN = 6
+const stallPage = ref(1)
+const stallPageSize = ref(STALL_PAGE_MIN)
 
 const query = reactive({
   current: 1,
@@ -346,6 +364,9 @@ async function loadStalls() {
       dishLimit: STALL_DISH_LIMIT
     })
     stalls.value = res.data || []
+    // 筛选后档口变少时，把页码收回到最后一页
+    const maxPage = Math.max(1, Math.ceil(stalls.value.length / Math.max(STALL_PAGE_MIN, stallPageSize.value)))
+    if (stallPage.value > maxPage) stallPage.value = maxPage
   } catch {
     stalls.value = []
   } finally {
@@ -378,9 +399,38 @@ function switchRankPeriod(p) {
   loadRanking()
 }
 
+/** 当前页要渲染的档口 */
+const pagedStalls = computed(() => {
+  const size = Math.max(STALL_PAGE_MIN, stallPageSize.value)
+  const start = (stallPage.value - 1) * size
+  return sortedStalls.value.slice(start, start + size)
+})
+
+const stallPageCount = computed(() => {
+  const size = Math.max(STALL_PAGE_MIN, stallPageSize.value)
+  return Math.max(1, Math.ceil(sortedStalls.value.length / size))
+})
+
+/** 翻页后回到列表顶部，避免停在上一页的底部 */
+async function backToStallTop() {
+  await nextTick()
+  const el = document.querySelector('.stall-tip')
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function onStallPageChange() {
+  backToStallTop()
+}
+
+function onStallSizeChange() {
+  stallPage.value = 1
+  backToStallTop()
+}
+
 function onSortCommand(cmd) {
   sortMode.value = cmd
   query.current = 1
+  stallPage.value = 1
   if (cmd === 'stall') {
     loadStalls()
   } else {
@@ -407,6 +457,7 @@ function applyArea(area, floor) {
   query.area = area
   query.floor = floor
   query.current = 1
+  stallPage.value = 1
   if (sortMode.value === 'stall') {
     loadStalls()
   } else {
@@ -707,6 +758,8 @@ onMounted(async () => {
   gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  /* 翻页后 scrollIntoView 时避开吸顶的筛选条 */
+  scroll-margin-top: 72px;
 }
 
 .stall-tip-main {
@@ -735,7 +788,12 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-height: 120px;
+  /* 页面下限：至少撑满 3 行档口，最后一页条目少时分页器不会突然上跳 */
+  min-height: 794px;
+}
+
+.stall-pager {
+  margin-top: 18px;
 }
 
 .stall-row {
