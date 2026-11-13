@@ -12,9 +12,15 @@
       <img src="/ui/assistant/happy.png" class="ai-rec-mascot" alt="AI 小助手">
     </div>
 
-    <!-- 快捷提问气泡 + 发送按钮 -->
+    <!-- 输入框 + 发送按钮：默认文字仅为占位提示，点击箭头才跳转食堂小助手 -->
     <div class="ai-rec-prompt">
-      <div class="ai-rec-bubble" @click="generate">推荐一下今天的热销菜吧！</div>
+      <input
+        v-model="question"
+        class="ai-rec-input"
+        type="text"
+        placeholder="推荐一下今天的热销菜吧！"
+        @keyup.enter="generate"
+      />
       <button class="ai-rec-send" title="发送" @click="generate">
         <el-icon><ArrowRight /></el-icon>
       </button>
@@ -60,6 +66,7 @@ const props = defineProps({
 const router = useRouter()
 const offset = ref(0)
 const thinking = ref(false)
+const question = ref('')
 
 const picks = computed(() => {
   const list = props.dishes || []
@@ -74,9 +81,10 @@ function shuffle() {
 }
 
 // 「发送」把问题发给 AI 小助手：唤醒全局小助手窗口并自动发送该问题
+// 用户输入的内容优先，未输入则回退到默认提问
 function generate() {
-  const question = '推荐一下今天的热销菜吧！'
-  window.dispatchEvent(new CustomEvent('canteen:assistant-ask', { detail: question }))
+  const q = question.value.trim() || '推荐一下今天的热销菜吧！'
+  window.dispatchEvent(new CustomEvent('canteen:assistant-ask', { detail: q }))
 }
 
 function go(d) {
@@ -161,25 +169,28 @@ function price(p) {
   margin-top: 8px;
 }
 
-.ai-rec-bubble {
+.ai-rec-input {
   flex: 1;
   min-width: 0;
   padding: 8px 12px;
   border-radius: 14px;
   background: #f5f6f8;
   border: 1px solid var(--border);
-  color: var(--text-2);
+  color: var(--text-1);
   font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+  box-sizing: border-box;
+  outline: none;
   transition: border-color 0.15s ease;
 }
 
-.ai-rec-bubble:hover {
+.ai-rec-input::placeholder {
+  color: var(--text-3);
+}
+
+.ai-rec-input:focus {
   border-color: var(--brand-line);
-  color: var(--brand-dark);
+  background: #fff;
 }
 
 .ai-rec-send {
