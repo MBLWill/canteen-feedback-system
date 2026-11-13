@@ -48,89 +48,89 @@
       </div>
     </div>
 
-    <!-- ===== 中部趋势通栏 ===== -->
-    <section class="panel panel--trend">
-      <div class="panel-head">
-        <div>
-          <span class="panel-title">销量与营收趋势</span>
-          <span class="panel-sub">近 {{ days }} 天 · 柱=销量(份) / 线=营收(元) · 虚线为日均销量</span>
+    <!-- ===== 图表区 ===== -->
+    <div class="board">
+      <!-- 趋势图：通栏独占 -->
+      <section class="panel panel--trend">
+        <div class="panel-head">
+          <div>
+            <span class="panel-title">销量与营收趋势</span>
+            <span class="panel-sub">近 {{ days }} 天 · 柱=销量(份) / 线=营收(元)</span>
+          </div>
+          <div class="legend-inline">
+            <i class="dot" style="background:#ff9f45" />销量
+            <i class="dot" style="background:#3b82f6; margin-left:12px" />营收
+          </div>
         </div>
-        <div class="legend-inline">
-          <i class="dot" style="background:#ff9f45" />销量
-          <i class="dot" style="background:#3b82f6; margin-left:12px" />营收
-        </div>
-      </div>
-      <div v-if="data.salesTrend?.length" class="panel-body"><EChart :option="trendOption" :height="chartH('286px')" /></div>
-      <el-empty v-else description="暂无销量数据" :image-size="70" />
-    </section>
+        <div v-if="data.salesTrend?.length" class="panel-body"><EChart :option="trendOption" :height="chartH('286px')" /></div>
+        <el-empty v-else description="暂无销量数据" :image-size="70" />
+      </section>
 
-    <!-- ===== 左右两列 ===== -->
-    <div class="cols">
-      <!-- 左列 -->
-      <div class="col">
-        <section class="panel">
-          <div class="panel-head">
-            <div><span class="panel-title">档口销量排行</span><span class="panel-sub">按购买人数排序 · 点击柱子联动菜品榜</span></div>
-            <div class="head-tools">
-              <div class="mini-seg">
-                <button :class="{ active: stallMetric === 'quantity' }" @click="stallMetric = 'quantity'">销量</button>
-                <button :class="{ active: stallMetric === 'amount' }" @click="stallMetric = 'amount'">营收</button>
-              </div>
-              <button v-if="selectedStallId" class="filter-chip" @click="clearStallFilter">{{ selectedStallName }} ×</button>
-            </div>
-          </div>
-          <div v-if="data.stallRank?.length" class="panel-body"><EChart :option="stallRankOption" :height="chartH('300px')" @click="onStallClick" /></div>
-          <el-empty v-else description="暂无档口数据" :image-size="70" />
-        </section>
-
-        <section class="panel panel--quad">
-          <div class="panel-head">
-            <div><span class="panel-title">档口经营象限</span><span class="panel-sub">横轴=销量，纵轴=好评率，气泡=营收 · 均值线切四象限</span></div>
-          </div>
-          <div v-if="quadrantPoints.length" class="panel-body"><EChart :option="quadrantOption" :height="chartH('320px')" @click="onStallClick" /></div>
-          <el-empty v-else description="暂无可对比的档口数据" :image-size="70" />
-        </section>
-
-        <section class="panel panel--rate">
-          <div class="panel-head">
-            <div><span class="panel-title">评分分布</span><span class="panel-sub">全校 {{ data.overview?.reviewCount ?? 0 }} 条有效评价 · 平均 {{ Number(data.overview?.avgRating || 0).toFixed(2) }} 分</span></div>
-          </div>
-          <div v-if="data.ratingDist?.length" class="panel-body"><EChart :option="ratingOption" :height="chartH('300px')" /></div>
-          <el-empty v-else description="暂无评分数据" :image-size="70" />
-        </section>
-      </div>
-
-      <!-- 右列 -->
-      <div class="col">
-        <section class="panel">
-          <div class="panel-head">
-            <div><span class="panel-title">{{ dishTitle }}</span><span class="panel-sub">点击柱子查看菜品详情 · 按累计{{ dishMetric === 'amount' ? '营收' : '销量' }}</span></div>
+      <!-- 档口销量排行（左侧大图，跨 3 行） -->
+      <section class="panel panel--stall">
+        <div class="panel-head">
+          <div><span class="panel-title">档口销量排行</span><span class="panel-sub">按购买人数排序 · 点击柱子联动菜品榜</span></div>
+          <div class="head-tools">
             <div class="mini-seg">
-              <button :class="{ active: dishMetric === 'quantity' }" @click="dishMetric = 'quantity'">销量</button>
-              <button :class="{ active: dishMetric === 'amount' }" @click="dishMetric = 'amount'">营收</button>
+              <button :class="{ active: stallMetric === 'quantity' }" @click="stallMetric = 'quantity'">销量</button>
+              <button :class="{ active: stallMetric === 'amount' }" @click="stallMetric = 'amount'">营收</button>
             </div>
+            <button v-if="selectedStallId" class="filter-chip" @click="clearStallFilter">{{ selectedStallName }} ×</button>
           </div>
-          <div v-if="filteredDishRank.length" class="panel-body"><EChart :option="dishRankOption" :height="chartH('300px')" @click="onDishClick" /></div>
-          <el-empty v-else description="当前筛选下暂无排行数据" :image-size="70" />
-        </section>
+        </div>
+        <div v-if="data.stallRank?.length" class="panel-body"><EChart :option="stallRankOption" :height="chartH('300px')" @click="onStallClick" /></div>
+        <el-empty v-else description="暂无档口数据" :image-size="70" />
+      </section>
 
-        <section class="panel panel--category">
-          <div class="panel-head">
-            <div><span class="panel-title">品类销量占比</span><span class="panel-sub">点击扇区联动菜品排行</span></div>
-            <button v-if="selectedCategory" class="filter-chip" @click="selectedCategory = ''">{{ selectedCategory }} ×</button>
-          </div>
-          <div v-if="data.categorySales?.length" class="panel-body"><EChart :option="categoryOption" :height="chartH('286px')" @click="onCategoryClick" /></div>
-          <el-empty v-else description="暂无品类数据" :image-size="70" />
-        </section>
+      <!-- 档口经营象限（右上 1） -->
+      <section class="panel panel--quad">
+        <div class="panel-head">
+          <div><span class="panel-title">档口经营象限</span><span class="panel-sub">横轴=销量，纵轴=好评率，气泡=营收</span></div>
+        </div>
+        <div v-if="quadrantPoints.length" class="panel-body"><EChart :option="quadrantOption" :height="chartH('320px')" @click="onStallClick" /></div>
+        <el-empty v-else description="暂无可对比的档口数据" :image-size="70" />
+      </section>
 
-        <section class="panel panel--praise">
-          <div class="panel-head">
-            <div><span class="panel-title">各档口口碑对比</span><span class="panel-sub">好评率 = 4-5 星占比 · 低于 60% 标红</span></div>
+      <!-- 菜品 TOP（右上 2） -->
+      <section class="panel panel--dish">
+        <div class="panel-head">
+          <div><span class="panel-title">{{ dishTitle }}</span><span class="panel-sub">点击柱子查看菜品详情 · 按累计{{ dishMetric === 'amount' ? '营收' : '销量' }}</span></div>
+          <div class="mini-seg">
+            <button :class="{ active: dishMetric === 'quantity' }" @click="dishMetric = 'quantity'">销量</button>
+            <button :class="{ active: dishMetric === 'amount' }" @click="dishMetric = 'amount'">营收</button>
           </div>
-          <div v-if="data.stallRating?.length" class="panel-body"><EChart :option="goodRateOption" :height="chartH('300px')" /></div>
-          <el-empty v-else description="暂无评价数据" :image-size="70" />
-        </section>
-      </div>
+        </div>
+        <div v-if="filteredDishRank.length" class="panel-body"><EChart :option="dishRankOption" :height="chartH('300px')" @click="onDishClick" /></div>
+        <el-empty v-else description="当前筛选下暂无排行数据" :image-size="70" />
+      </section>
+
+      <!-- 品类销量占比（右中通栏） -->
+      <section class="panel panel--category">
+        <div class="panel-head">
+          <div><span class="panel-title">品类销量占比</span><span class="panel-sub">点击扇区联动菜品排行</span></div>
+          <button v-if="selectedCategory" class="filter-chip" @click="selectedCategory = ''">{{ selectedCategory }} ×</button>
+        </div>
+        <div v-if="data.categorySales?.length" class="panel-body"><EChart :option="categoryOption" :height="chartH('286px')" @click="onCategoryClick" /></div>
+        <el-empty v-else description="暂无品类数据" :image-size="70" />
+      </section>
+
+      <!-- 评分分布（仅首页显示，大屏已删除） -->
+      <section v-if="!fullscreen" class="panel panel--rate">
+        <div class="panel-head">
+          <div><span class="panel-title">评分分布</span><span class="panel-sub">平均 {{ Number(data.overview?.avgRating || 0).toFixed(2) }} 分</span></div>
+        </div>
+        <div v-if="data.ratingDist?.length" class="panel-body"><EChart :option="ratingOption" :height="chartH('300px')" /></div>
+        <el-empty v-else description="暂无评分数据" :image-size="70" />
+      </section>
+
+      <!-- 各档口口碑对比（仅首页显示，大屏已删除） -->
+      <section v-if="!fullscreen" class="panel panel--praise">
+        <div class="panel-head">
+          <div><span class="panel-title">各档口口碑对比</span><span class="panel-sub">好评率 = 4-5 星占比 · 低于 60% 标红</span></div>
+        </div>
+        <div v-if="data.stallRating?.length" class="panel-body"><EChart :option="goodRateOption" :height="chartH('300px')" /></div>
+        <el-empty v-else description="暂无评价数据" :image-size="70" />
+      </section>
     </div>
 
     <!-- ===== 底部信息栏 ===== -->
@@ -400,11 +400,12 @@ const trendOption = computed(() => {
       {
         name: '销量',
         type: 'bar',
-        barMaxWidth: 24,
+        barMaxWidth: 12,
+        barGap: '30%',
         animationDelay: idx => idx * 24,
         data: list.map(i => i.quantity),
         itemStyle: {
-          borderRadius: [5, 5, 0, 0],
+          borderRadius: [3, 3, 0, 0],
           color: {
             type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [{ offset: 0, color: '#ffb066' }, { offset: 1, color: '#ff7a1a' }]
@@ -451,10 +452,10 @@ const trendOption = computed(() => {
 const categoryOption = computed(() => {
   const list = data.value.categorySales || []
   const total = list.reduce((s, i) => s + Number(i.quantity || 0), 0)
-  // 大屏下卡片更宽，环图靠左、图例竖排在右侧，避免中间一大片空白
-  const wide = fullscreen.value
-  const centerX = wide ? '33%' : '50%'
-  const centerY = wide ? '50%' : '44%'
+  // 卡片现在为 1/3 宽（非通栏），环图居中、图例排底部，避免左右留白
+  const wide = false
+  const centerX = '50%'
+  const centerY = '44%'
   const pctOf = name => {
     const it = list.find(i => (i.category || '其他') === name)
     return total ? ((Number(it?.quantity || 0) / total) * 100).toFixed(1) : '0'
@@ -469,31 +470,19 @@ const categoryOption = computed(() => {
         return `<b>${p.name}</b><br/>销量：${Number(p.value).toLocaleString()} 份<br/>占比：${pct}%<br/>营收：¥${Number(p.data.amount || 0).toLocaleString()}`
       }
     },
-    legend: wide
-      ? {
-          orient: 'vertical',
-          right: 2,
-          top: 'middle',
-          width: 132,
-          itemWidth: 9,
-          itemHeight: 9,
-          itemGap: 9,
-          textStyle: { color: '#5b6472', fontSize: 11 },
-          formatter: name => `${name}   ${pctOf(name)}%`
-        }
-      : {
-          bottom: 0, itemWidth: 9, itemHeight: 9, itemGap: 12,
-          textStyle: { color: '#5b6472', fontSize: 11 }
-        },
+    legend: {
+      bottom: 0, itemWidth: 9, itemHeight: 9, itemGap: 12,
+      textStyle: { color: '#5b6472', fontSize: 11 }
+    },
     series: [
       {
         type: 'pie',
-        radius: wide ? ['46%', '94%'] : ['46%', '68%'],
+        radius: ['46%', '72%'],
         center: [centerX, centerY],
         avoidLabelOverlap: true,
         itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
-        label: { show: !wide, formatter: '{d}%', fontSize: 11, color: '#5b6472' },
-        labelLine: { show: !wide, length: 8, length2: 8, lineStyle: { color: '#d5dbe3' } },
+        label: { show: false },
+        labelLine: { show: false },
         emphasis: {
           scaleSize: 8,
           label: { show: true, fontSize: 13, fontWeight: 'bold', formatter: '{b}\n{d}%' }
@@ -509,9 +498,9 @@ const categoryOption = computed(() => {
       }
     ],
     graphic: [
-      { type: 'text', z: 10, left: centerX, top: wide ? '42%' : '38%', style: { text: '总销量', fill: '#98a1ad', fontSize: 11, textAlign: 'center' } },
+      { type: 'text', z: 10, left: centerX, top: '38%', style: { text: '总销量', fill: '#98a1ad', fontSize: 11, textAlign: 'center' } },
       {
-        type: 'text', z: 10, left: centerX, top: wide ? '49%' : '45%',
+        type: 'text', z: 10, left: centerX, top: '45%',
         style: {
           text: total >= 10000 ? (total / 10000).toFixed(1) + '万' : String(total),
           fill: '#1a1d24', fontSize: 20, fontWeight: 'bold', textAlign: 'center'
@@ -527,7 +516,7 @@ const stallRankOption = computed(() => {
   // 切到营收口径时同步重排，避免条形长度变了但顺序还是销量序
   const top = [...(data.value.stallRank || [])]
     .sort((a, b) => Number(b[stallMetric.value] || 0) - Number(a[stallMetric.value] || 0))
-    .slice(0, fullscreen.value ? 8 : 10)
+    .slice(0, fullscreen.value ? 5 : 10)
   const list = [...top].reverse()
   const isAmount = stallMetric.value === 'amount'
   const max = Math.max(1, ...list.map(i => Number(i[stallMetric.value] || 0)))
@@ -604,13 +593,13 @@ const filteredDishRank = computed(() => {
 const dishTitle = computed(() => {
   if (selectedStallName.value) return `${selectedStallName.value} · 热销菜品`
   if (selectedCategory.value) return `${selectedCategory.value} · 热销菜品`
-  return `菜品${dishMetric.value === 'amount' ? '营收' : '销量'} TOP${fullscreen.value ? 8 : 10}`
+  return `菜品${dishMetric.value === 'amount' ? '营收' : '销量'} TOP${fullscreen.value ? 5 : 10}`
 })
 
 const dishRankOption = computed(() => {
   const all = filteredDishRank.value
   const filtered = !!(selectedStallId.value || selectedCategory.value)
-  const limited = filtered ? all : all.slice(0, fullscreen.value ? 8 : 10)
+  const limited = filtered ? all : all.slice(0, fullscreen.value ? 5 : 10)
   const list = [...limited].reverse()
   const isAmount = dishMetric.value === 'amount'
   const max = Math.max(1, ...list.map(i => Number(i[dishMetric.value] || 0)))
@@ -680,9 +669,8 @@ const dishRankOption = computed(() => {
 /* ---------- 档口好评率 ---------- */
 const goodRateOption = computed(() => {
   const src = [...(data.value.stallRating || [])].sort((a, b) => a.goodRate - b.goodRate)
-  // 大屏下用垂直柱状图（12 档口横向排开，好评率作柱高），彻底避免横向条形标签重叠
+  // 口碑对比占 2 列宽，用竖向柱状图（12 档口横向排开、好评率作柱高），避免横向条形文字重叠
   const list = src
-  const vertical = fullscreen.value
   return {
     animationDuration: 800,
     animationDurationUpdate: 480,
@@ -699,64 +687,46 @@ const goodRateOption = computed(() => {
           `评价数：${raw.reviewCount || 0} 条`
       }
     },
-    grid: vertical
-      ? { left: 8, right: 12, top: 26, bottom: 4, containLabel: true }
-      : { left: 6, right: 58, top: 20, bottom: 10, containLabel: true },
-    xAxis: vertical
-      ? {
-          type: 'category',
-          data: list.map(i => i.stallName),
-          axisLine: { lineStyle: { color: '#e2e6ec' } },
-          axisTick: { show: false },
-          axisLabel: { color: '#5b6472', fontSize: 11, interval: 0, rotate: 0, formatter: v => (v.length > 4 ? v.slice(0, 4) + '…' : v) }
-        }
-      : {
-          type: 'value', max: 100,
-          splitLine: { lineStyle: { color: '#f1f4f8' } },
-          axisLabel: { color: '#98a1ad', fontSize: 12, formatter: '{value}%' }
-        },
-    yAxis: vertical
-      ? {
-          type: 'value', max: 100,
-          splitNumber: 3,
-          splitLine: { lineStyle: { color: '#f1f4f8' } },
-          axisLabel: { color: '#98a1ad', fontSize: 11, formatter: '{value}%' }
-        }
-      : {
-          type: 'category',
-          data: list.map(i => i.stallName),
-          axisLine: { show: false },
-          axisTick: { show: false },
-          axisLabel: { color: '#5b6472', fontSize: 12, interval: 0, formatter: v => (v.length > 6 ? v.slice(0, 6) + '…' : v) }
-        },
+    grid: { left: 10, right: 14, top: 30, bottom: 4, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: list.map(i => i.stallName),
+      axisLine: { lineStyle: { color: '#e2e6ec' } },
+      axisTick: { show: false },
+      axisLabel: { color: '#5b6472', fontSize: 11, interval: 0, formatter: v => (v.length > 4 ? v.slice(0, 4) + '…' : v) }
+    },
+    yAxis: {
+      type: 'value', max: 100,
+      splitNumber: 4,
+      splitLine: { lineStyle: { color: '#f1f4f8' } },
+      axisLabel: { color: '#98a1ad', fontSize: 11, formatter: '{value}%' }
+    },
     series: [
       {
         type: 'bar',
-        barMaxWidth: vertical ? 26 : 16,
+        barMaxWidth: 28,
         animationDelay: idx => idx * 30,
         data: list.map(i => ({
           value: i.goodRate,
           itemStyle: {
-            borderRadius: vertical ? [6, 6, 0, 0] : [0, 7, 7, 0],
+            borderRadius: [5, 5, 0, 0],
             color: i.goodRate >= 80 ? '#22c55e' : i.goodRate >= 60 ? '#f59e0b' : '#ef4444'
           }
         })),
         label: {
           show: true,
-          position: vertical ? 'top' : 'right',
-          formatter: p => Number(p.value || 0).toFixed(1) + '%',
+          position: 'top',
+          formatter: p => Number(p.value || 0).toFixed(0) + '%',
           color: '#8a93a0',
-          fontSize: 11
+          fontSize: 10
         },
-        markLine: vertical
-          ? {
-              silent: true,
-              symbol: 'none',
-              lineStyle: { type: 'dashed', color: '#c9cfd8', width: 1 },
-              label: { formatter: '60%', color: '#98a1ad', fontSize: 10 },
-              data: [{ yAxis: 60 }]
-            }
-          : undefined
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          lineStyle: { type: 'dashed', color: '#c9cfd8', width: 1 },
+          label: { formatter: '60%', color: '#98a1ad', fontSize: 10 },
+          data: [{ yAxis: 60 }]
+        }
       }
     ]
   }
@@ -764,9 +734,9 @@ const goodRateOption = computed(() => {
 
 /* ---------- 评分分布 ---------- */
 const ratingOption = computed(() => {
-  const list = [...(data.value.ratingDist || [])].sort((a, b) => a.star - b.star)
+  const list = [...(data.value.ratingDist || [])].sort((a, b) => b.star - a.star)
   const total = list.reduce((s, i) => s + Number(i.count || 0), 0)
-  const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e']
+  const COLORS = ['#22c55e', '#84cc16', '#f59e0b', '#f97316', '#ef4444']
   return {
     animationDuration: 800,
     animationDurationUpdate: 480,
@@ -780,28 +750,28 @@ const ratingOption = computed(() => {
         return `<b>${p.name}</b><br/>数量：${Number(p.value || 0).toLocaleString()} 条<br/>占比：${pct}%`
       }
     },
-    grid: { left: 6, right: 12, top: 34, bottom: 8, containLabel: true },
+    grid: { left: 8, right: 8, top: 30, bottom: 4, containLabel: true },
     xAxis: {
       type: 'category',
       data: list.map(i => `${i.star} 星`),
       axisLine: { lineStyle: { color: '#e2e6ec' } },
       axisTick: { show: false },
-      axisLabel: { color: '#5b6472', fontSize: 12 }
+      axisLabel: { color: '#5b6472', fontSize: 11 }
     },
     yAxis: {
       type: 'value',
       splitLine: { lineStyle: { color: '#f1f4f8' } },
-      axisLabel: { color: '#98a1ad', fontSize: 12 }
+      axisLabel: { color: '#98a1ad', fontSize: 11, formatter: v => (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) }
     },
     series: [
       {
         type: 'bar',
-        barMaxWidth: 42,
+        barMaxWidth: 34,
         animationDelay: idx => idx * 60,
         data: list.map((i, idx) => ({
           value: i.count,
           itemStyle: {
-            borderRadius: [8, 8, 0, 0],
+            borderRadius: [6, 6, 0, 0],
             color: {
               type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
               colorStops: [{ offset: 0, color: COLORS[idx] }, { offset: 1, color: COLORS[idx] + '77' }]
@@ -815,7 +785,7 @@ const ratingOption = computed(() => {
           fontSize: 11,
           formatter: p => {
             const pct = total ? ((p.value / total) * 100).toFixed(0) : 0
-            return `${p.value} 条 · ${pct}%`
+            return `${pct}%`
           }
         }
       }
@@ -951,14 +921,15 @@ const quadrantOption = computed(() => {
           show: true,
           position: 'top',
           distance: 6,
-          formatter: p => (!fullscreen.value || p.dataIndex < 3) ? p.data.raw.stallName : '',
+          // 仅给销量最高/好评率最高等少量代表点打标签，其余靠悬浮查看，避免 12 个气泡标签叠成一团
+          formatter: p => (p.dataIndex < 2 || p.data.raw.goodRate >= 88) ? p.data.raw.stallName : '',
           color: '#5b6472',
           fontSize: fullscreen.value ? 10 : 11,
           textBorderColor: 'rgba(255,255,255,0.92)',
           textBorderWidth: 2
         },
         // 点位靠近时标签自动上下错开，避免文字叠在一起
-        labelLayout: { moveOverlap: 'shiftY', hideOverlap: fullscreen.value },
+        labelLayout: { moveOverlap: 'shiftY', hideOverlap: true },
         emphasis: {
           scale: 1.15,
           itemStyle: { opacity: 1, borderWidth: 1.6, shadowBlur: 18 }
@@ -1506,26 +1477,28 @@ onBeforeUnmount(() => {
   display: inline-block;
 }
 
-/* ===================== 布局：普通模式（长页） ===================== */
-.panel--trend { height: 320px; margin-bottom: 16px; }
-
-.cols {
+/* ===================== 布局：普通模式（长页，与全屏区分） ===================== */
+.board {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 320px 300px 300px 280px;
+  grid-template-areas:
+    'trend trend'
+    'stall dish'
+    'quad  category'
+    'rate  praise';
   gap: 16px;
 }
 
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.panel--trend { grid-area: trend; height: auto; min-height: 0; }
+.panel--stall { grid-area: stall; }
+.panel--quad  { grid-area: quad; }
+.panel--dish  { grid-area: dish; }
+.panel--category { grid-area: category; }
+.panel--rate  { grid-area: rate; }
+.panel--praise { grid-area: praise; }
 
-.col .panel { height: 340px; }
-.col .panel--quad,
-.col .panel--category { height: 300px; }
-.col .panel--rate,
-.col .panel--praise { height: 240px; }
+.board .panel { height: 100%; min-height: 0; }
 
 .ds-foot {
   margin-top: 16px;
@@ -1542,8 +1515,8 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 3000;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   padding: 14px 18px 12px;
   overflow: hidden;
@@ -1553,47 +1526,28 @@ onBeforeUnmount(() => {
 .ds--full .ds-head {
   margin-bottom: 0;
   padding: 12px 22px;
+  flex-shrink: 0;
 }
 
 .ds--full .ds-head h1 { font-size: 22px; }
 .ds--full .head-sub { font-size: 12px; }
 
-.ds--full .kpi-grid {
-  margin-bottom: 0;
-  gap: 12px;
-}
+/* 大屏模式删除 KPI 指标栏（首页保留不变） */
+.ds--full .kpi-grid { display: none; }
 
-.ds--full .kpi { padding: 12px 16px; }
-.ds--full .kpi-value { font-size: 24px; }
-.ds--full .kpi-extra { display: none; }
-
-.ds--full .panel--trend {
-  height: auto;
+/* 大屏布局：趋势通栏 + 档口/象限/菜品/品类 四个等宽等高 */
+.ds--full .board {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: 1.15fr 1fr;
+  grid-template-areas:
+    'trend    trend    trend    trend'
+    'stall    quad     dish     category';
+  gap: 14px;
   flex: 1;
   min-height: 0;
-  margin-bottom: 0;
 }
 
-.ds--full .cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.ds--full .col {
-  display: grid;
-  grid-template-rows: 1.25fr 1fr 0.9fr;
-  gap: 14px;
-  min-height: 0;
-}
-
-.ds--full .col .panel,
-.ds--full .col .panel--quad,
-.ds--full .col .panel--category,
-.ds--full .col .panel--rate,
-.ds--full .col .panel--praise {
+.ds--full .board .panel {
   height: auto;
   min-height: 0;
 }
@@ -1606,6 +1560,7 @@ onBeforeUnmount(() => {
   margin-top: 0;
   padding-top: 8px;
   font-size: 11.5px;
+  flex-shrink: 0;
 }
 
 /* ===================== 响应式 ===================== */
@@ -1619,7 +1574,13 @@ onBeforeUnmount(() => {
   .ds-head { flex-direction: column; align-items: flex-start; }
   .head-right { flex-wrap: wrap; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .cols { grid-template-columns: 1fr; }
+  .board {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      'trend' 'stall' 'quad' 'dish' 'category' 'rate' 'praise';
+  }
+  .board .panel { height: 320px; }
 }
 </style>
 
