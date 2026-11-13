@@ -1,6 +1,6 @@
 <template>
-  <div class="page-container">
-    <el-card shadow="never" class="page-card">
+  <div class="page-container page-fill">
+    <el-card shadow="never" class="page-card page-card-fill">
       <template #header>
         <div class="manage-header">
           <div class="header-left">
@@ -19,17 +19,19 @@
         </div>
       </template>
 
-      <el-table
-        ref="tableRef"
-        :data="list"
-        row-key="id"
-        border
-        stripe
-        v-loading="loading"
-        row-class-name="clickable-row"
-        @selection-change="onSelectionChange"
-        @row-click="handleRowClick"
-      >
+      <div class="table-wrap">
+        <el-table
+          ref="tableRef"
+          :data="list"
+          row-key="id"
+          border
+          stripe
+          height="100%"
+          v-loading="loading"
+          row-class-name="clickable-row"
+          @selection-change="onSelectionChange"
+          @row-click="handleRowClick"
+        >
         <el-table-column type="selection" width="48" />
         <el-table-column prop="windowNo" label="窗口号" width="90" align="center" />
         <el-table-column label="区域" width="80" align="center">
@@ -93,6 +95,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑档口' : '新增档口'" width="520px">
@@ -480,6 +483,45 @@ onActivated(loadData)
 </script>
 
 <style scoped>
+/* 撑满窗口高度：整个页面不滚动，表格在内部滚动，表头与横向滚动条固定 */
+.page-fill {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-card-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-card-fill :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 滚动条常显（浮动固定）：横向/纵向滚动条始终可见，不随内容滚动而消失 */
+.table-wrap :deep(.el-scrollbar__bar) {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+.table-wrap :deep(.el-scrollbar__thumb) {
+  background: #c8cdd4 !important;
+}
+
 .manage-header {
   display: flex;
   justify-content: space-between;
