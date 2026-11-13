@@ -193,32 +193,56 @@
 
         <!-- 右侧：今日最佳 + 人气榜 -->
         <div class="plaza-side">
-          <!-- 板块3：今日最佳（两道菜） -->
+          <!-- 板块3：趣味抽奖机（点一下随机抽一个档口的菜品） -->
           <div class="side-card side-card--best">
             <div class="side-card-head">
-              <span class="side-card-title">今日最佳</span>
+              <span class="side-card-title">今天吃什么</span>
             </div>
-            <div v-if="bestDishes.length" class="best-grid">
-              <div
-                v-for="bd in bestDishes"
-                :key="'best-' + bd.dishId"
-                class="best-card"
-                @click="goDish(bd)"
-              >
-                <div class="best-cover" :style="{ background: coverGradient(bd.category) }">
-                  <img v-if="bd.image" :src="bd.image" :alt="bd.dishName" loading="lazy" @error="$event.target.style.display='none'">
-                  <span v-else class="best-initial">{{ (bd.dishName || '菜').slice(0, 1) }}</span>
-                </div>
-                <div class="best-info">
-                  <div class="best-name">{{ bd.dishName }}</div>
-                  <div class="best-meta">
-                    <span class="best-price">¥{{ priceText(bd.price) }}</span>
-                    <span class="best-sales">月售 {{ bd.salesCount || 0 }}</span>
+
+            <div class="lucky-box" :class="{ 'is-spinning': luckySpinning }">
+              <!-- 抽中结果 -->
+              <template v-if="luckyStall">
+                <div class="lucky-stall" @click="selectStall(luckyStall)">
+                  <span class="lucky-stall-tag">抽中的档口</span>
+                  <div class="lucky-stall-name">{{ luckyStall.name }}</div>
+                  <div class="lucky-stall-meta">
+                    {{ stallZoneText(luckyStall) }} · {{ luckyStall.windowNo }} 号窗口 · 月售 {{ luckyStall.salesCount || 0 }}
                   </div>
                 </div>
+                <div class="lucky-dishes">
+                  <div
+                    v-for="d in (luckyStall.topDishes || []).slice(0, 3)"
+                    :key="d.id"
+                    class="lucky-dish"
+                    @click="goDishDetail(d)"
+                  >
+                    <div class="lucky-cover" :style="{ background: coverGradient(d.category) }">
+                      <img v-if="d.image" :src="d.image" :alt="d.name" loading="lazy" @error="$event.target.style.display='none'">
+                      <span v-else class="lucky-initial">{{ (d.name || '菜').slice(0, 1) }}</span>
+                    </div>
+                    <div class="lucky-dish-body">
+                      <div class="lucky-dish-name">{{ d.name }}</div>
+                      <div class="lucky-dish-foot">
+                        <span class="lucky-dish-price">¥{{ priceText(d.price) }}</span>
+                        <span v-if="d.avgRating" class="lucky-dish-rating">★ {{ Number(d.avgRating).toFixed(1) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="!(luckyStall.topDishes && luckyStall.topDishes.length)" class="side-empty">该档口暂无在售菜品</div>
+                </div>
+              </template>
+
+              <!-- 空态 -->
+              <div v-else class="lucky-empty">
+                <div class="lucky-empty-icon">🎰</div>
+                <div class="lucky-empty-text">今天吃什么？<br>点一下，随机抽一个档口</div>
               </div>
+
+              <!-- 抽奖按钮 -->
+              <button class="lucky-btn" :disabled="luckySpinning" @click="drawLucky">
+                {{ luckySpinning ? '抽奖中…' : (luckyStall ? '再抽一次' : '抽一抽') }}
+              </button>
             </div>
-            <div v-else class="side-empty">暂无数据</div>
           </div>
 
           <!-- 人气榜 -->
@@ -323,8 +347,32 @@ const canteenText = computed(() => {
   return '北区食堂'
 })
 
-/** 今日最佳：固定榜单前两名，展示两道菜（不随人气榜切换而变化） */
-const bestDishes = computed(() => (bestList.value || []).slice(0, 2))
+// 趣味抽奖机：点一下随机抽一个档口，展示该档口评分较高的菜品
+const luckyStall = ref(null)
+const luckySpinning = ref(false)
+let luckyTimer = null
+
+function drawLucky() {
+  if (luckySpinning.value) return
+  const pool = stalls.value.filter(s => s.topDishes && s.topDishes.length)
+  if (!pool.length) {
+    luckyStall.value = null
+    return
+  }
+  luckySpinning.value = true
+  // 快速轮换档口制造「抽奖跳动」的趣味感，最后随机定格一个
+  const rounds = 10 + Math.floor(Math.random() * 6) // 10~15 次跳动
+  let count = 0
+  luckyTimer = setInterval(() => {
+    luckyStall.value = pool[Math.floor(Math.random() * pool.length)]
+    count += 1
+    if (count >= rounds) {
+      clearInterval(luckyTimer)
+      luckyTimer = null
+      luckySpinning.value = false
+    }
+  }, 80)
+}
 
 function stallZoneText(st) {
   if (!st) return ''
@@ -593,6 +641,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize)
   clearTimeout(resizeTimer)
+  if (luckyTimer) clearInterval(luckyTimer)
 })
 </script>
 
@@ -1190,23 +1239,104 @@ onUnmounted(() => {
   padding: 16px 0;
 }
 
-/* 今日最佳：两道菜两列 */
-.best-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* 趣味抽奖机 */
+.lucky-box {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.best-card {
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border);
+.lucky-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 12px 18px;
+  text-align: center;
 }
 
-.best-cover {
-  width: 100%;
-  aspect-ratio: 16 / 10;
+.lucky-empty-icon {
+  font-size: 40px;
+  line-height: 1;
+  animation: lucky-bounce 1.6s ease-in-out infinite;
+}
+
+.lucky-empty-text {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+/* 抽中档口卡 */
+.lucky-stall {
+  cursor: pointer;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff3e6, #ffe4c7);
+  border: 1px solid #ffd9ad;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lucky-stall:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(255, 122, 26, 0.12);
+}
+
+.lucky-stall-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff8f3c, var(--brand));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.lucky-stall-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-1);
+  transition: color 0.1s ease;
+}
+
+.is-spinning .lucky-stall-name {
+  color: var(--brand);
+}
+
+.lucky-stall-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* 抽中的菜品列表 */
+.lucky-dishes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lucky-dish {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lucky-dish:hover {
+  background: var(--brand-soft);
+}
+
+.lucky-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1214,7 +1344,7 @@ onUnmounted(() => {
   position: relative;
 }
 
-.best-cover img {
+.lucky-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1222,21 +1352,21 @@ onUnmounted(() => {
   inset: 0;
 }
 
-.best-initial {
-  font-size: 30px;
+.lucky-initial {
+  font-size: 22px;
   font-weight: 700;
   color: #fff;
   position: relative;
   z-index: 1;
 }
 
-.best-info {
-  padding: 10px 12px;
-  background: var(--surface);
+.lucky-dish-body {
+  flex: 1;
+  min-width: 0;
 }
 
-.best-name {
-  font-size: 14px;
+.lucky-dish-name {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-1);
   white-space: nowrap;
@@ -1244,22 +1374,57 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-.best-meta {
+.lucky-dish-foot {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 5px;
+  margin-top: 3px;
 }
 
-.best-price {
-  font-size: 16px;
+.lucky-dish-price {
+  font-size: 15px;
   font-weight: 800;
   color: var(--brand);
 }
 
-.best-sales {
+.lucky-dish-rating {
   font-size: 12px;
-  color: var(--text-3);
+  color: #f59e0b;
+}
+
+/* 抽奖按钮 */
+.lucky-btn {
+  width: 100%;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ff8f3c, var(--brand));
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 12px rgba(255, 122, 26, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.lucky-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(255, 122, 26, 0.36);
+}
+
+.lucky-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.lucky-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@keyframes lucky-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
 /* 人气榜 */
